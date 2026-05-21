@@ -1,0 +1,90 @@
+# GestãoLoc — Regras do Projeto
+
+## Visão
+Sistema web de gestão para locadora de veículos. Stack obrigatória: Next.js 15 (App Router), TypeScript, Tailwind CSS, Shadcn/ui, Prisma + PostgreSQL, Clerk, Zod, date-fns, Lucide React.
+
+## Estrutura de Pastas (obrigatória)
+
+```
+src/
+├── app/
+│   ├── (auth)/              # sign-in, sign-up
+│   ├── (dashboard)/         # rotas autenticadas
+│   │   ├── layout.tsx
+│   │   ├── page.tsx         # dashboard
+│   │   ├── veiculos/
+│   │   ├── manutencoes/
+│   │   ├── clientes/
+│   │   ├── locacoes/
+│   │   ├── financeiro/
+│   │   └── relatorios/
+│   ├── api/                 # route handlers
+│   └── layout.tsx
+├── components/
+│   ├── ui/                  # shadcn
+│   ├── layout/              # sidebar, header
+│   └── dashboard/
+├── lib/
+│   ├── prisma.ts
+│   ├── auth.ts
+│   ├── utils.ts
+│   └── validations/
+├── types/
+└── hooks/
+prisma/
+├── schema.prisma
+└── seed.ts
+```
+
+## Convenções de Código
+- TypeScript estrito; sem `any` desnecessário
+- Server Components por padrão; `"use client"` só quando necessário
+- Validações com Zod em formulários e APIs
+- Datas com date-fns (locale pt-BR)
+- Ícones: Lucide React
+- Componentes UI: Shadcn/ui; não reinventar botões/cards
+- Imports com alias `@/`
+
+## Autenticação (Clerk)
+- Roles no `publicMetadata`: `admin` | `atendente` | `financeiro` | `mecanico`
+- Sincronizar User no Prisma via webhook ou on first login
+- Middleware protege `(dashboard)/*`
+- Permissões: admin (tudo), atendente (clientes/locações), financeiro (financeiro), mecanico (frota/manutenção)
+
+## Regras de Negócio — Veículos
+- Status: `DISPONIVEL` | `ALUGADO` | `EM_MANUTENCAO` | `INATIVO`
+- Campos: placa (única), marca, modelo, ano, cor, kmAtual, kmProximaRevisao
+- Alerta manutenção por km: verde (>1000 km), amarelo (500–1000 km), vermelho (<500 km ou vencido)
+
+## Regras de Negócio — Manutenção
+- Tipos com peças padrão (TipoManutencao + PecaManutencao)
+- Status alerta: `VERDE` | `AMARELO` | `VERMELHO`
+- Registrar km e data em cada manutenção
+
+## Regras de Negócio — Financeiro
+- TransacaoFinanceira: `ENTRADA` | `SAIDA`
+- CategoriaFinanceira obrigatória
+- Fluxo de caixa: saldo = entradas - saídas no período
+
+## Regras de Negócio — Locação
+- Status: `RESERVADA` | `ATIVA` | `FINALIZADA` | `CANCELADA`
+- Não permitir locação se veículo não `DISPONIVEL`
+- Atualizar status do veículo ao iniciar/finalizar locação
+
+## Prisma
+- `cuid()` para IDs string; `createdAt` / `updatedAt` em todos os models
+- Índices em FKs e campos de busca frequente
+- Migrations nomeadas e revisadas antes de aplicar
+
+## UI/UX
+- Layout responsivo: sidebar colapsável em mobile
+- Cores de alerta: verde `#22c55e`, amarelo `#eab308`, vermelho `#ef4444`
+- Dashboard como página inicial após login
+- Textos em português (pt-BR)
+
+## Fases de Desenvolvimento
+- Fase 0: estrutura, schema, auth, layout, dashboard
+- Fase 1: veículos + manutenção
+- Fase 2: clientes + locações
+- Fase 3: financeiro
+- Fase 4: relatórios avançados

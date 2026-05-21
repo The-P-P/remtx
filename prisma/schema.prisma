@@ -1,0 +1,241 @@
+// REMTX — Schema principal
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Enums ---
+
+enum UserRole {
+  ADMIN
+  ATENDENTE
+  FINANCEIRO
+  MECANICO
+}
+
+enum StatusVeiculo {
+  DISPONIVEL
+  ALUGADO
+  EM_MANUTENCAO
+  INATIVO
+}
+
+enum StatusLocacao {
+  RESERVADA
+  ATIVA
+  FINALIZADA
+  CANCELADA
+}
+
+enum TipoTransacao {
+  ENTRADA
+  SAIDA
+}
+
+enum AlertaManutencao {
+  VERDE
+  AMARELO
+  VERMELHO
+}
+
+enum GravidadeProblema {
+  LEVE
+  MEDIA
+  GRAVE
+}
+
+// --- Usuário (sincronizado com Clerk) ---
+
+model User {
+  id        String   @id
+  email     String   @unique
+  nome      String
+  role      UserRole @default(ATENDENTE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+// --- Frota ---
+
+model Veiculo {
+  id               String        @id @default(cuid())
+  placa            String        @unique
+  marca            String
+  modelo           String
+  ano              Int
+  cor              String?
+  kmAtual          Int           @default(0)
+  kmProximaRevisao Int
+  status           StatusVeiculo @default(DISPONIVEL)
+  observacoes      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  manutencoes       Manutencao[]
+  locacoes          Locacao[]
+  problemasCronicos ProblemaCronico[]
+
+  @@index([status])
+  @@index([placa])
+}
+
+// --- Clientes ---
+
+model Cliente {
+  id          String   @id @default(cuid())
+  nome        String
+  cpf         String   @unique
+  telefone    String
+  email       String?
+  endereco    String?
+  observacoes String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  locacoes Locacao[]
+
+  @@index([nome])
+  @@index([cpf])
+}
+
+// --- Locações ---
+
+model Locacao {
+  id              String        @id @default(cuid())
+  veiculoId       String
+  clienteId       String
+  dataInicio      DateTime
+  dataFimPrevista  DateTime
+  dataFimReal     DateTime?
+  kmInicio        Int
+  kmFim           Int?
+  valorDiaria     Decimal       @db.Decimal(10, 2)
+  valorTotal      Decimal?      @db.Decimal(10, 2)
+  status          StatusLocacao @default(RESERVADA)
+  observacoes     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  veiculo  Veiculo  @relation(fields: [veiculoId], references: [id], onDelete: Restrict)
+  cliente  Cliente  @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([veiculoId])
+  @@index([clienteId])
+  @@index([dataInicio])
+}
+
+// --- Manutenção ---
+
+model TipoManutencao {
+  id          String   @id @default(cuid())
+  nome        String   @unique
+  descricao   String?
+  intervaloKm Int
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pecasPadrao  PecaPadraoTipo[]
+  manutencoes  Manutencao[]
+}
+
+model PecaPadraoTipo {
+  id               String @id @default(cuid())
+  tipoManutencaoId String
+  nome             String
+  quantidade       Int    @default(1)
+
+  tipoManutencao TipoManutencao @relation(fields: [tipoManutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([tipoManutencaoId])
+}
+
+model Manutencao {
+  id               String           @id @default(cuid())
+  veiculoId        String
+  tipoManutencaoId String
+  dataRealizada    DateTime
+  kmRealizada      Int
+  kmProxima        Int
+  custo            Decimal?         @db.Decimal(10, 2)
+  alerta           AlertaManutencao @default(VERDE)
+  observacoes      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  veiculo        Veiculo        @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+  tipoManutencao TipoManutencao @relation(fields: [tipoManutencaoId], references: [id], onDelete: Restrict)
+  pecas          PecaManutencao[]
+
+  @@index([veiculoId])
+  @@index([tipoManutencaoId])
+  @@index([kmProxima])
+}
+
+model PecaManutencao {
+  id            String   @id @default(cuid())
+  manutencaoId  String
+  nome          String
+  quantidade    Int      @default(1)
+  valorUnitario Decimal? @db.Decimal(10, 2)
+
+  manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([manutencaoId])
+}
+
+// --- Problemas crônicos ---
+
+model ProblemaCronico {
+  id            String            @id @default(cuid())
+  veiculoId     String
+  descricao     String
+  gravidade     GravidadeProblema @default(MEDIA)
+  ativo         Boolean           @default(true)
+  dataRegistro  DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+
+  @@index([veiculoId])
+  @@index([ativo])
+}
+
+// --- Financeiro ---
+
+model CategoriaFinanceira {
+  id        String        @id @default(cuid())
+  nome      String        @unique
+  tipo      TipoTransacao
+  ativo     Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  transacoes TransacaoFinanceira[]
+}
+
+model TransacaoFinanceira {
+  id          String        @id @default(cuid())
+  categoriaId String
+  tipo        TipoTransacao
+  valor       Decimal       @db.Decimal(10, 2)
+  descricao   String
+  data        DateTime
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  categoria CategoriaFinanceira @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+
+  @@index([data])
+  @@index([tipo])
+  @@index([categoriaId])
+}
