@@ -68,7 +68,7 @@ export function TipoManutencaoDeleteButton({
               aria-label="Excluir tipo"
             />
           ) : (
-            <Button variant="destructive" type="button" />
+            <Button variant="destructive" type="button" className="w-full sm:w-auto" />
           )
         }
       >

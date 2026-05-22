@@ -12,21 +12,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
 import { ProblemaCronicoForm } from "@/components/veiculos/problema-cronico-form";
+import { VeiculoManutencoesList } from "@/components/veiculos/veiculo-manutencoes-list";
 import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
+import { PageActions } from "@/components/shared/page-actions";
 import { GRAVIDADE_LABEL, GRAVIDADE_STYLE } from "@/lib/constants/enums";
-import { ALERTA_CORES } from "@/lib/manutencao-alerts";
-import { formatKm, formatCurrency } from "@/lib/utils";
+import { formatKm } from "@/lib/utils";
 
 export default async function VeiculoDetalhePage({
   params,
@@ -44,17 +37,25 @@ export default async function VeiculoDetalhePage({
         description={`Ano ${veiculo.ano}${veiculo.cor ? ` · ${veiculo.cor}` : ""}`}
         backHref="/veiculos"
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" render={<Link href={`/veiculos/${id}/editar`} />}>
+          <PageActions>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              render={<Link href={`/veiculos/${id}/editar`} />}
+            >
               <Pencil className="size-4" />
               Editar
             </Button>
-            <Button render={<Link href={`/manutencoes/nova?veiculoId=${id}`} />}>
+            <Button
+              className="w-full sm:w-auto"
+              render={<Link href={`/manutencoes/nova?veiculoId=${id}`} />}
+            >
               <Wrench className="size-4" />
-              Registrar manutenção
+              <span className="sm:hidden">Manutenção</span>
+              <span className="hidden sm:inline">Registrar manutenção</span>
             </Button>
             <VeiculoDeleteButtonServer id={id} variant="button" />
-          </div>
+          </PageActions>
         }
       />
 
@@ -120,8 +121,8 @@ export default async function VeiculoDetalhePage({
                     key={p.id}
                     className={`rounded-lg border p-3 ${p.ativo ? "border-red-100 bg-red-50/50" : "opacity-60"}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
                         <Badge className={GRAVIDADE_STYLE[p.gravidade]}>
                           {GRAVIDADE_LABEL[p.gravidade]}
                         </Badge>
@@ -130,7 +131,7 @@ export default async function VeiculoDetalhePage({
                           {format(p.dataRegistro, "dd/MM/yyyy", { locale: ptBR })}
                         </p>
                       </div>
-                      <form
+                      <form className="shrink-0"
                         action={async () => {
                           "use server";
                           await toggleProblemaCronico(p.id, id, !p.ativo);
@@ -153,47 +154,7 @@ export default async function VeiculoDetalhePage({
             <CardTitle>Últimas manutenções</CardTitle>
           </CardHeader>
           <CardContent>
-            {veiculo.manutencoes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhuma manutenção registrada.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Km</TableHead>
-                    <TableHead>Peças</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {veiculo.manutencoes.map((m) => {
-                    const estilo = ALERTA_CORES[m.alerta];
-                    return (
-                      <TableRow key={m.id}>
-                        <TableCell>
-                          {format(m.dataRealizada, "dd/MM/yy", { locale: ptBR })}
-                        </TableCell>
-                        <TableCell>{m.tipoManutencao.nome}</TableCell>
-                        <TableCell>{formatKm(m.kmRealizada)}</TableCell>
-                        <TableCell>
-                          <span className="text-xs">
-                            {m.pecas.length} peça(s)
-                            {m.custo ? ` · ${formatCurrency(Number(m.custo))}` : ""}
-                          </span>
-                          <Badge
-                            className={`ml-1 ${estilo.bg} ${estilo.text} text-[10px]`}
-                          >
-                            {estilo.label}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+            <VeiculoManutencoesList manutencoes={veiculo.manutencoes} />
           </CardContent>
         </Card>
       </div>

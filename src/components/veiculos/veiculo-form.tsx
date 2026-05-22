@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
 import type { StatusVeiculo } from "@/types/prisma";
+import { FormActionsRow } from "@/components/shared/form-actions-row";
 import type { FormAction, FormState } from "@/types/form";
 
 const selectClass =
@@ -42,7 +43,7 @@ export function VeiculoForm({
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="w-full max-w-xl space-y-4">
       {state.success === false && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}
@@ -130,14 +131,18 @@ export function VeiculoForm({
         />
       </div>
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
+      <FormActionsRow>
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
           {pending ? "Salvando..." : submitLabel}
         </Button>
-        <Button variant="outline" render={<Link href={cancelHref} />}>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          render={<Link href={cancelHref} />}
+        >
           Cancelar
         </Button>
-      </div>
+      </FormActionsRow>
     </form>
   );
 }

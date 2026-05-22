@@ -6,6 +6,7 @@ import { TipoManutencaoDeleteButton } from "@/components/manutencoes/tipo-manute
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitEditarTipoManutencao } from "@/lib/actions/form-actions";
+import { PageActions } from "@/components/shared/page-actions";
 
 export default async function EditarTipoManutencaoPage({
   params,
@@ -23,14 +24,16 @@ export default async function EditarTipoManutencaoPage({
       <PageHeader
         title={`Editar ${tipo.nome}`}
         description="Altere intervalo, descrição e peças padrão deste tipo"
-        backHref="/manutencoes"
+        backHref="/manutencoes/tipos"
         action={
-          <TipoManutencaoDeleteButton
-            id={id}
-            nome={tipo.nome}
-            totalManutencoes={tipo._count.manutencoes}
-            variant="button"
-          />
+          <PageActions>
+            <TipoManutencaoDeleteButton
+              id={id}
+              nome={tipo.nome}
+              totalManutencoes={tipo._count.manutencoes}
+              variant="button"
+            />
+          </PageActions>
         }
       />
 
@@ -49,7 +52,7 @@ export default async function EditarTipoManutencaoPage({
             action={boundAction}
             initial={tipo}
             submitLabel="Salvar alterações"
-            cancelHref="/manutencoes"
+            cancelHref="/manutencoes/tipos"
           />
         </CardContent>
       </Card>

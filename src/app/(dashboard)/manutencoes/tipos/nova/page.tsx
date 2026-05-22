@@ -9,7 +9,7 @@ export default function NovoTipoManutencaoPage() {
       <PageHeader
         title="Novo tipo de manutenção"
         description="Define intervalo em km e lista de peças padrão por revisão"
-        backHref="/manutencoes"
+        backHref="/manutencoes/tipos"
       />
       <Card>
         <CardHeader>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FormActionsRow } from "@/components/shared/form-actions-row";
 import type { FormAction, FormState } from "@/types/form";
 
 type TipoManutencaoInitial = {
@@ -20,7 +21,7 @@ export function TipoManutencaoForm({
   action,
   initial,
   submitLabel = "Criar tipo",
-  cancelHref = "/manutencoes",
+  cancelHref = "/manutencoes/tipos",
 }: {
   action: FormAction;
   initial?: TipoManutencaoInitial;
@@ -41,7 +42,7 @@ export function TipoManutencaoForm({
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="w-full max-w-xl space-y-4">
       <input
         type="hidden"
         name="pecas"
@@ -93,12 +94,13 @@ export function TipoManutencaoForm({
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Label>Peças padrão</Label>
           <Button
             type="button"
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto"
             onClick={() => setPecas([...pecas, { nome: "", quantidade: 1 }])}
           >
             <Plus className="size-3" />
@@ -106,7 +108,10 @@ export function TipoManutencaoForm({
           </Button>
         </div>
         {pecas.map((peca, i) => (
-          <div key={i} className="flex gap-2">
+          <div
+            key={i}
+            className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_4rem_auto] sm:items-center"
+          >
             <Input
               placeholder="Nome da peça"
               value={peca.nome}
@@ -115,12 +120,13 @@ export function TipoManutencaoForm({
                 next[i] = { ...next[i], nome: e.target.value };
                 setPecas(next);
               }}
-              className="flex-1"
+              className="min-w-0"
             />
             <Input
               type="number"
               min={1}
-              className="w-20"
+              className="w-full"
+              title="Qtd"
               value={peca.quantidade}
               onChange={(e) => {
                 const next = [...pecas];
@@ -142,14 +148,18 @@ export function TipoManutencaoForm({
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
+      <FormActionsRow>
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
           {pending ? "Salvando..." : submitLabel}
         </Button>
-        <Button variant="outline" render={<Link href={cancelHref} />}>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          render={<Link href={cancelHref} />}
+        >
           Cancelar
         </Button>
-      </div>
+      </FormActionsRow>
     </form>
   );
 }

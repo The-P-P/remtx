@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FormActionsRow } from "@/components/shared/form-actions-row";
 import type { FormAction, FormState } from "@/types/form";
 
 const selectClass =
@@ -105,7 +106,7 @@ export function ManutencaoForm({
   }
 
   return (
-    <form action={formAction} className="max-w-2xl space-y-4">
+    <form action={formAction} className="w-full max-w-2xl space-y-4">
       <input
         type="hidden"
         name="pecas"
@@ -231,14 +232,15 @@ export function ManutencaoForm({
       </div>
 
       <div className="space-y-3 rounded-lg border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <Label>Peças utilizadas</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {tipoAtual && tipoAtual.pecasPadrao.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={carregarPecasDoTipo}
               >
                 Carregar peças do tipo
@@ -248,6 +250,7 @@ export function ManutencaoForm({
               type="button"
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => setPecas([...pecas, { nome: "", quantidade: 1 }])}
             >
               <Plus className="size-3" />
@@ -256,7 +259,10 @@ export function ManutencaoForm({
           </div>
         </div>
         {pecas.map((peca, i) => (
-          <div key={i} className="flex flex-wrap gap-2">
+          <div
+            key={i}
+            className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_4rem_5rem_auto] sm:items-center"
+          >
             <Input
               placeholder="Nome da peça"
               value={peca.nome}
@@ -265,12 +271,13 @@ export function ManutencaoForm({
                 next[i] = { ...next[i], nome: e.target.value };
                 setPecas(next);
               }}
-              className="min-w-[200px] flex-1"
+              className="min-w-0"
             />
             <Input
               type="number"
               min={1}
-              className="w-16"
+              className="w-full"
+              title="Qtd"
               value={peca.quantidade}
               onChange={(e) => {
                 const next = [...pecas];
@@ -283,7 +290,7 @@ export function ManutencaoForm({
               step="0.01"
               min={0}
               placeholder="R$"
-              className="w-24"
+              className="w-full"
               value={peca.valorUnitario ?? ""}
               onChange={(e) => {
                 const next = [...pecas];
@@ -312,18 +319,22 @@ export function ManutencaoForm({
 
       {!isEdit && <input type="hidden" name="pecasExtras" value="[]" />}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
+      <FormActionsRow>
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
           {pending
             ? "Salvando..."
             : isEdit
               ? "Salvar alterações"
               : "Registrar manutenção"}
         </Button>
-        <Button variant="outline" render={<Link href="/manutencoes" />}>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          render={<Link href="/manutencoes" />}
+        >
           Cancelar
         </Button>
-      </div>
+      </FormActionsRow>
     </form>
   );
 }

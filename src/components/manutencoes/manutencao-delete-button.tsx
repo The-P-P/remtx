@@ -54,7 +54,7 @@ export function ManutencaoDeleteButton({
               aria-label="Excluir manutenção"
             />
           ) : (
-            <Button variant="destructive" type="button" />
+            <Button variant="destructive" type="button" className="w-full sm:w-auto" />
           )
         }
       >

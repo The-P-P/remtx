@@ -23,14 +23,14 @@ export function PageHeader({
             <ArrowLeft className="size-4" />
           </Button>
         )}
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h2>
           {description && (
             <p className="text-sm text-muted-foreground">{description}</p>
           )}
         </div>
       </div>
-      {action}
+      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
   );
 }

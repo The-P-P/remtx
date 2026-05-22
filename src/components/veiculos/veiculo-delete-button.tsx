@@ -84,7 +84,7 @@ export function VeiculoDeleteButton({
               aria-label="Excluir veículo"
             />
           ) : (
-            <Button variant="destructive" type="button" />
+            <Button variant="destructive" type="button" className="w-full sm:w-auto" />
           )
         }
       >

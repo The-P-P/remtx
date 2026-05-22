@@ -109,7 +109,7 @@ export async function submitNovoTipoManutencao(
 ): Promise<FormState> {
   const result = await createTipoManutencao(formData);
   if (result.success) {
-    redirect("/manutencoes");
+    redirect("/manutencoes/tipos");
   }
   return {
     success: false,
@@ -124,7 +124,7 @@ export async function submitEditarTipoManutencao(
 ): Promise<FormState> {
   const result = await updateTipoManutencao(id, formData);
   if (result.success) {
-    redirect("/manutencoes");
+    redirect("/manutencoes/tipos");
   }
   return {
     success: false,
@@ -135,7 +135,7 @@ export async function submitEditarTipoManutencao(
 export async function deleteTipoManutencaoAction(id: string) {
   const result = await deleteTipoManutencao(id);
   if (result.success) {
-    redirect("/manutencoes");
+    redirect("/manutencoes/tipos");
   }
   throw new Error(!result.success ? result.error : "Erro ao excluir");
 }
