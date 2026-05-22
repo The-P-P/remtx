@@ -1,4 +1,4 @@
-# GestãoLoc — Regras do Projeto
+# REMTX — Regras do Projeto
 
 ## Visão
 Sistema web de gestão para locadora de veículos. Stack obrigatória: Next.js 15 (App Router), TypeScript, Tailwind CSS, Shadcn/ui, Prisma + PostgreSQL, Clerk, Zod, date-fns, Lucide React.
@@ -83,8 +83,8 @@ prisma/
 - Textos em português (pt-BR)
 
 ## Fases de Desenvolvimento
-- Fase 0: estrutura, schema, auth, layout, dashboard
-- Fase 1: veículos + manutenção
+- Fase 0: estrutura, schema, auth, layout, dashboard ✅
+- Fase 1: veículos + manutenção (em progresso)
 - Fase 2: clientes + locações
 - Fase 3: financeiro
 - Fase 4: relatórios avançados

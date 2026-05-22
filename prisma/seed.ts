@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { TIPOS_MANUTENCAO_PREVENTIVA } from "./data/tipos-manutencao-preventiva";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -10,39 +11,56 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Iniciando seed REMTX...");
 
-  const tiposManutencao = await Promise.all([
-    prisma.tipoManutencao.upsert({
-      where: { nome: "Revisão 10.000 km" },
-      update: {},
-      create: {
-        nome: "Revisão 10.000 km",
-        descricao: "Revisão periódica completa",
-        intervaloKm: 10000,
-        pecasPadrao: {
-          create: [
-            { nome: "Óleo do motor", quantidade: 1 },
-            { nome: "Filtro de óleo", quantidade: 1 },
-            { nome: "Filtro de ar", quantidade: 1 },
-          ],
+  // Catálogo completo de manutenção preventiva (hatch/sedan/compactos BR)
+  const tiposManutencaoIds: string[] = [];
+  for (const tipo of TIPOS_MANUTENCAO_PREVENTIVA) {
+    const existente = await prisma.tipoManutencao.findUnique({
+      where: { nome: tipo.nome },
+    });
+    if (existente) {
+      await prisma.pecaPadraoTipo.deleteMany({
+        where: { tipoManutencaoId: existente.id },
+      });
+      await prisma.tipoManutencao.update({
+        where: { id: existente.id },
+        data: {
+          descricao: tipo.descricao,
+          intervaloKm: tipo.intervaloKm,
+          ativo: true,
+          pecasPadrao: {
+            create: tipo.pecas.map((p) => ({
+              nome: p.nome,
+              quantidade: p.quantidade,
+            })),
+          },
         },
-      },
-    }),
-    prisma.tipoManutencao.upsert({
-      where: { nome: "Troca de pastilhas de freio" },
-      update: {},
-      create: {
-        nome: "Troca de pastilhas de freio",
-        intervaloKm: 40000,
-        pecasPadrao: {
-          create: [
-            { nome: "Pastilhas dianteiras", quantidade: 1 },
-            { nome: "Pastilhas traseiras", quantidade: 1 },
-            { nome: "Fluido de freio", quantidade: 1 },
-          ],
+      });
+      tiposManutencaoIds.push(existente.id);
+    } else {
+      const criado = await prisma.tipoManutencao.create({
+        data: {
+          nome: tipo.nome,
+          descricao: tipo.descricao,
+          intervaloKm: tipo.intervaloKm,
+          pecasPadrao: {
+            create: tipo.pecas.map((p) => ({
+              nome: p.nome,
+              quantidade: p.quantidade,
+            })),
+          },
         },
-      },
-    }),
-  ]);
+      });
+      tiposManutencaoIds.push(criado.id);
+    }
+  }
+  const tipoRevisao10k =
+    (await prisma.tipoManutencao.findUnique({
+      where: { nome: "Revisão 10.000 km — Básica" },
+    })) ??
+    (await prisma.tipoManutencao.findFirst({
+      where: { nome: { contains: "10.000" } },
+    }));
+  const tipoRevisaoId = tipoRevisao10k?.id ?? tiposManutencaoIds[0];
 
   const categorias = await Promise.all([
     prisma.categoriaFinanceira.upsert({
@@ -156,7 +174,7 @@ async function main() {
       data: [
         {
           veiculoId: veiculos[0].id,
-          tipoManutencaoId: tiposManutencao[0].id,
+          tipoManutencaoId: tipoRevisaoId,
           dataRealizada: new Date(hoje.getTime() - 90 * 24 * 60 * 60 * 1000),
           kmRealizada: 40000,
           kmProxima: 50000,
@@ -165,7 +183,7 @@ async function main() {
         },
         {
           veiculoId: veiculos[3].id,
-          tipoManutencaoId: tiposManutencao[0].id,
+          tipoManutencaoId: tipoRevisaoId,
           dataRealizada: new Date(hoje.getTime() - 120 * 24 * 60 * 60 * 1000),
           kmRealizada: 80000,
           kmProxima: 90000,

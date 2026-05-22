@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
 import { isClerkConfigured } from "@/lib/clerk-config";
 
-export default async function middleware(req: NextRequest) {
+export default async function middleware(req: NextRequest, event: NextFetchEvent) {
   if (!isClerkConfigured()) {
     if (!req.nextUrl.pathname.startsWith("/setup")) {
       return NextResponse.redirect(new URL("/setup", req.url));
@@ -24,7 +24,7 @@ export default async function middleware(req: NextRequest) {
     if (!isPublicRoute(request)) {
       await auth.protect();
     }
-  })(req);
+  })(req, event);
 }
 
 export const config = {
