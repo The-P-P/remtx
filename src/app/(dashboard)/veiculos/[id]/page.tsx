@@ -23,6 +23,7 @@ import {
 import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
 import { ProblemaCronicoForm } from "@/components/veiculos/problema-cronico-form";
+import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
 import { GRAVIDADE_LABEL, GRAVIDADE_STYLE } from "@/lib/constants/enums";
 import { ALERTA_CORES } from "@/lib/manutencao-alerts";
 import { formatKm, formatCurrency } from "@/lib/utils";
@@ -52,6 +53,7 @@ export default async function VeiculoDetalhePage({
               <Wrench className="size-4" />
               Registrar manutenção
             </Button>
+            <VeiculoDeleteButtonServer id={id} variant="button" />
           </div>
         }
       />

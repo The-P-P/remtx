@@ -15,7 +15,7 @@ export default async function NovaManutencaoPage({
   const { veiculoId } = await searchParams;
   const [veiculos, tipos] = await Promise.all([
     getVeiculosParaSelect(),
-    getTiposManutencao(),
+    getTiposManutencao({ apenasAtivos: true }),
   ]);
 
   return (

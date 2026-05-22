@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus, Eye, Pencil } from "lucide-react";
+import { VeiculoDeleteButton } from "@/components/veiculos/veiculo-delete-button";
 import { getVeiculos } from "@/lib/actions/veiculos";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export default async function VeiculosPage({
                 </TableRow>
               ) : (
                 veiculos.map((v) => (
-                  <TableRow key={v.id}>
+                  <TableRow key={v.id} className={v.status === "INATIVO" ? "opacity-60" : ""}>
                     <TableCell className="font-mono font-medium">{v.placa}</TableCell>
                     <TableCell>
                       {v.marca} {v.modelo} ({v.ano})
@@ -109,6 +110,19 @@ export default async function VeiculosPage({
                         <Button variant="ghost" size="icon-sm" render={<Link href={`/veiculos/${v.id}/editar`} />}>
                           <Pencil className="size-4" />
                         </Button>
+                        <VeiculoDeleteButton
+                          id={v.id}
+                          descricao={`${v.placa} — ${v.marca} ${v.modelo}`}
+                          modoExclusao={
+                            v._count.locacoes === 0 ? "permanente" : "inativar"
+                          }
+                          bloqueado={v.locacoes.length > 0}
+                          motivoBloqueio={
+                            v.locacoes.length > 0
+                              ? "Veículo com locação ativa ou reservada"
+                              : undefined
+                          }
+                        />
                       </div>
                       {v._count.problemasCronicos > 0 && (
                         <span className="text-xs text-red-600">

@@ -4,11 +4,16 @@ import { redirect } from "next/navigation";
 import {
   createVeiculo,
   updateVeiculo,
+  deleteVeiculo,
   createProblemaCronico,
 } from "@/lib/actions/veiculos";
 import {
   createManutencao,
+  updateManutencao,
+  deleteManutencao,
   createTipoManutencao,
+  updateTipoManutencao,
+  deleteTipoManutencao,
 } from "@/lib/actions/manutencoes";
 import type { FormState } from "@/types/form";
 
@@ -67,6 +72,37 @@ export async function submitNovaManutencao(
   };
 }
 
+export async function deleteVeiculoAction(id: string) {
+  const result = await deleteVeiculo(id);
+  if (result.success) {
+    redirect("/veiculos");
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function deleteManutencaoAction(id: string) {
+  const result = await deleteManutencao(id);
+  if (result.success) {
+    redirect("/manutencoes");
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function submitEditarManutencao(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateManutencao(id, formData);
+  if (result.success) {
+    redirect("/manutencoes");
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao salvar",
+  };
+}
+
 export async function submitNovoTipoManutencao(
   _prev: FormState,
   formData: FormData
@@ -79,4 +115,27 @@ export async function submitNovoTipoManutencao(
     success: false,
     error: !result.success ? result.error : "Erro ao criar tipo",
   };
+}
+
+export async function submitEditarTipoManutencao(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateTipoManutencao(id, formData);
+  if (result.success) {
+    redirect("/manutencoes");
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao atualizar tipo",
+  };
+}
+
+export async function deleteTipoManutencaoAction(id: string) {
+  const result = await deleteTipoManutencao(id);
+  if (result.success) {
+    redirect("/manutencoes");
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
 }

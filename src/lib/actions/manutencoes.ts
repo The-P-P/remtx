@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import {
   manutencaoSchema,
+  manutencaoUpdateSchema,
   tipoManutencaoSchema,
 } from "@/lib/validations/manutencao";
 import { calcularAlertaKm } from "@/lib/manutencao-alerts";
@@ -32,10 +33,76 @@ export async function getManutencoes() {
   });
 }
 
-export async function getTiposManutencao() {
+export async function getManutencaoById(id: string) {
+  return prisma.manutencao.findUnique({
+    where: { id },
+    include: {
+      veiculo: { select: { placa: true, marca: true, modelo: true } },
+      tipoManutencao: { select: { nome: true, intervaloKm: true } },
+      pecas: { orderBy: { nome: "asc" } },
+    },
+  });
+}
+
+function parsePecasForm(formData: FormData) {
+  const raw = formData.get("pecas");
+  if (!raw || typeof raw !== "string") return [];
+  try {
+    return JSON.parse(raw) as {
+      nome: string;
+      quantidade: number;
+      valorUnitario?: number;
+    }[];
+  } catch {
+    return [];
+  }
+}
+
+async function syncVeiculoKmFromUltimaManutencao(
+  veiculoId: string,
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+) {
+  const ultima = await tx.manutencao.findFirst({
+    where: { veiculoId },
+    orderBy: [{ dataRealizada: "desc" }, { kmRealizada: "desc" }],
+  });
+  if (!ultima) return;
+
+  const veiculo = await tx.veiculo.findUnique({
+    where: { id: veiculoId },
+    select: { status: true },
+  });
+  await tx.veiculo.update({
+    where: { id: veiculoId },
+    data: {
+      kmAtual: ultima.kmRealizada,
+      kmProximaRevisao: ultima.kmProxima,
+      ...(veiculo?.status === "EM_MANUTENCAO"
+        ? { status: "DISPONIVEL" as const }
+        : {}),
+    },
+  });
+}
+
+export async function getTiposManutencao(options?: {
+  apenasAtivos?: boolean;
+  incluirId?: string;
+}) {
+  const where = options?.apenasAtivos
+    ? {
+        OR: [
+          { ativo: true },
+          ...(options.incluirId ? [{ id: options.incluirId }] : []),
+        ],
+      }
+    : undefined;
+
   return prisma.tipoManutencao.findMany({
-    where: { ativo: true },
-    include: { pecasPadrao: true },
+    where,
+    include: {
+      pecasPadrao: true,
+      _count: { select: { manutencoes: true } },
+    },
     orderBy: { nome: "asc" },
   });
 }
@@ -43,7 +110,10 @@ export async function getTiposManutencao() {
 export async function getTipoManutencaoById(id: string) {
   return prisma.tipoManutencao.findUnique({
     where: { id },
-    include: { pecasPadrao: true },
+    include: {
+      pecasPadrao: true,
+      _count: { select: { manutencoes: true } },
+    },
   });
 }
 
@@ -145,27 +215,137 @@ export async function createManutencao(
   }
 }
 
+export async function updateManutencao(
+  id: string,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await assertManutencaoAccess();
+
+    const existente = await prisma.manutencao.findUnique({ where: { id } });
+    if (!existente) {
+      return { success: false, error: "Manutenção não encontrada" };
+    }
+
+    const pecas = parsePecasForm(formData);
+    const parsed = manutencaoUpdateSchema.safeParse({
+      veiculoId: formData.get("veiculoId"),
+      tipoManutencaoId: formData.get("tipoManutencaoId"),
+      dataRealizada: formData.get("dataRealizada"),
+      kmRealizada: formData.get("kmRealizada"),
+      kmProxima: formData.get("kmProxima") || undefined,
+      custo: formData.get("custo") || undefined,
+      observacoes: formData.get("observacoes") || undefined,
+      pecas,
+    });
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+      };
+    }
+
+    const tipo = await prisma.tipoManutencao.findUnique({
+      where: { id: parsed.data.tipoManutencaoId },
+    });
+    if (!tipo) {
+      return { success: false, error: "Tipo de manutenção não encontrado" };
+    }
+
+    const kmProxima =
+      parsed.data.kmProxima ??
+      parsed.data.kmRealizada + tipo.intervaloKm;
+    const alerta = calcularAlertaKm(parsed.data.kmRealizada, kmProxima);
+    const veiculoAnteriorId = existente.veiculoId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.pecaManutencao.deleteMany({ where: { manutencaoId: id } });
+
+      await tx.manutencao.update({
+        where: { id },
+        data: {
+          veiculoId: parsed.data.veiculoId,
+          tipoManutencaoId: parsed.data.tipoManutencaoId,
+          dataRealizada: parsed.data.dataRealizada,
+          kmRealizada: parsed.data.kmRealizada,
+          kmProxima,
+          custo: parsed.data.custo ?? null,
+          alerta,
+          observacoes: parsed.data.observacoes ?? null,
+          pecas: {
+            create: parsed.data.pecas.map((p) => ({
+              nome: p.nome,
+              quantidade: p.quantidade,
+              valorUnitario: p.valorUnitario ?? null,
+            })),
+          },
+        },
+      });
+
+      await syncVeiculoKmFromUltimaManutencao(parsed.data.veiculoId, tx);
+      if (veiculoAnteriorId !== parsed.data.veiculoId) {
+        await syncVeiculoKmFromUltimaManutencao(veiculoAnteriorId, tx);
+      }
+    });
+
+    revalidatePath("/manutencoes");
+    revalidatePath(`/manutencoes/${id}/editar`);
+    revalidatePath("/veiculos");
+    revalidatePath(`/veiculos/${parsed.data.veiculoId}`);
+    if (veiculoAnteriorId !== parsed.data.veiculoId) {
+      revalidatePath(`/veiculos/${veiculoAnteriorId}`);
+    }
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Erro ao atualizar manutenção",
+    };
+  }
+}
+
+export async function deleteManutencao(id: string): Promise<ActionResult> {
+  try {
+    await assertManutencaoAccess();
+
+    const existente = await prisma.manutencao.findUnique({ where: { id } });
+    if (!existente) {
+      return { success: false, error: "Manutenção não encontrada" };
+    }
+
+    const veiculoId = existente.veiculoId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.manutencao.delete({ where: { id } });
+      await syncVeiculoKmFromUltimaManutencao(veiculoId, tx);
+    });
+
+    revalidatePath("/manutencoes");
+    revalidatePath("/veiculos");
+    revalidatePath(`/veiculos/${veiculoId}`);
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Erro ao excluir manutenção",
+    };
+  }
+}
+
 export async function createTipoManutencao(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
     await assertManutencaoAccess();
 
-    const pecasRaw = formData.get("pecas");
-    let pecas: { nome: string; quantidade: number }[] = [];
-    if (pecasRaw && typeof pecasRaw === "string") {
-      try {
-        pecas = JSON.parse(pecasRaw);
-      } catch {
-        pecas = [];
-      }
-    }
-
     const parsed = tipoManutencaoSchema.safeParse({
       nome: formData.get("nome"),
       descricao: formData.get("descricao") || undefined,
       intervaloKm: formData.get("intervaloKm"),
-      pecas,
+      pecas: parsePecasTipoForm(formData),
     });
 
     if (!parsed.success) {
@@ -194,6 +374,111 @@ export async function createTipoManutencao(
       return { success: false, error: "Tipo já existe com este nome" };
     }
     return { success: false, error: msg };
+  }
+}
+
+function parsePecasTipoForm(formData: FormData) {
+  const pecasRaw = formData.get("pecas");
+  let pecas: { nome: string; quantidade: number }[] = [];
+  if (pecasRaw && typeof pecasRaw === "string") {
+    try {
+      pecas = JSON.parse(pecasRaw);
+    } catch {
+      pecas = [];
+    }
+  }
+  return pecas;
+}
+
+export async function updateTipoManutencao(
+  id: string,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    await assertManutencaoAccess();
+
+    const existente = await prisma.tipoManutencao.findUnique({ where: { id } });
+    if (!existente) {
+      return { success: false, error: "Tipo de manutenção não encontrado" };
+    }
+
+    const parsed = tipoManutencaoSchema.safeParse({
+      nome: formData.get("nome"),
+      descricao: formData.get("descricao") || undefined,
+      intervaloKm: formData.get("intervaloKm"),
+      pecas: parsePecasTipoForm(formData),
+    });
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.pecaPadraoTipo.deleteMany({ where: { tipoManutencaoId: id } });
+      await tx.tipoManutencao.update({
+        where: { id },
+        data: {
+          nome: parsed.data.nome,
+          descricao: parsed.data.descricao ?? null,
+          intervaloKm: parsed.data.intervaloKm,
+          pecasPadrao: {
+            create: parsed.data.pecas.map((p) => ({
+              nome: p.nome,
+              quantidade: p.quantidade,
+            })),
+          },
+        },
+      });
+    });
+
+    revalidatePath("/manutencoes");
+    revalidatePath(`/manutencoes/tipos/${id}/editar`);
+    return { success: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erro ao atualizar tipo";
+    if (msg.includes("Unique constraint")) {
+      return { success: false, error: "Já existe outro tipo com este nome" };
+    }
+    return { success: false, error: msg };
+  }
+}
+
+export async function deleteTipoManutencao(id: string): Promise<ActionResult> {
+  try {
+    await assertManutencaoAccess();
+
+    const tipo = await prisma.tipoManutencao.findUnique({
+      where: { id },
+      select: { nome: true },
+    });
+    if (!tipo) {
+      return { success: false, error: "Tipo de manutenção não encontrado" };
+    }
+
+    const totalManutencoes = await prisma.manutencao.count({
+      where: { tipoManutencaoId: id },
+    });
+
+    if (totalManutencoes === 0) {
+      await prisma.tipoManutencao.delete({ where: { id } });
+    } else {
+      await prisma.tipoManutencao.update({
+        where: { id },
+        data: { ativo: false },
+      });
+    }
+
+    revalidatePath("/manutencoes");
+    revalidatePath(`/manutencoes/tipos/${id}/editar`);
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Erro ao excluir tipo",
+    };
   }
 }
 

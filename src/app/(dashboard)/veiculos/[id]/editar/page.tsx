@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { VeiculoForm } from "@/components/veiculos/veiculo-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { submitEditarVeiculo } from "@/lib/actions/form-actions";
+import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
 
 export default async function EditarVeiculoPage({
   params,
@@ -21,6 +22,7 @@ export default async function EditarVeiculoPage({
       <PageHeader
         title={`Editar ${veiculo.placa}`}
         backHref={`/veiculos/${id}`}
+        action={<VeiculoDeleteButtonServer id={id} variant="button" />}
       />
       <Card>
         <CardHeader>

@@ -9,12 +9,32 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { FormAction, FormState } from "@/types/form";
 
+type TipoManutencaoInitial = {
+  nome: string;
+  descricao: string | null;
+  intervaloKm: number;
+  pecasPadrao: { nome: string; quantidade: number }[];
+};
+
 export function TipoManutencaoForm({
   action,
+  initial,
+  submitLabel = "Criar tipo",
+  cancelHref = "/manutencoes",
 }: {
   action: FormAction;
+  initial?: TipoManutencaoInitial;
+  submitLabel?: string;
+  cancelHref?: string;
 }) {
-  const [pecas, setPecas] = useState([{ nome: "", quantidade: 1 }]);
+  const [pecas, setPecas] = useState(
+    initial?.pecasPadrao.length
+      ? initial.pecasPadrao.map((p) => ({
+          nome: p.nome,
+          quantidade: p.quantidade,
+        }))
+      : [{ nome: "", quantidade: 1 }]
+  );
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
@@ -41,17 +61,35 @@ export function TipoManutencaoForm({
 
       <div className="space-y-2">
         <Label htmlFor="nome">Nome do tipo *</Label>
-        <Input id="nome" name="nome" required placeholder="Ex.: Revisão 10.000 km" />
+        <Input
+          id="nome"
+          name="nome"
+          required
+          defaultValue={initial?.nome}
+          placeholder="Ex.: Revisão 10.000 km"
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="intervaloKm">Intervalo (km) *</Label>
-        <Input id="intervaloKm" name="intervaloKm" type="number" required placeholder="10000" />
+        <Input
+          id="intervaloKm"
+          name="intervaloKm"
+          type="number"
+          required
+          defaultValue={initial?.intervaloKm}
+          placeholder="10000"
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="descricao">Descrição</Label>
-        <Textarea id="descricao" name="descricao" rows={2} />
+        <Textarea
+          id="descricao"
+          name="descricao"
+          rows={2}
+          defaultValue={initial?.descricao ?? ""}
+        />
       </div>
 
       <div className="space-y-3">
@@ -106,9 +144,9 @@ export function TipoManutencaoForm({
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando..." : "Criar tipo"}
+          {pending ? "Salvando..." : submitLabel}
         </Button>
-        <Button variant="outline" render={<Link href="/manutencoes" />}>
+        <Button variant="outline" render={<Link href={cancelHref} />}>
           Cancelar
         </Button>
       </div>

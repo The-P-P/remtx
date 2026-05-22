@@ -35,3 +35,22 @@ export const manutencaoSchema = z.object({
 });
 
 export type ManutencaoFormData = z.infer<typeof manutencaoSchema>;
+
+const pecaManutencaoSchema = z.object({
+  nome: z.string().min(1, "Nome da peça obrigatório"),
+  quantidade: z.coerce.number().int().positive().default(1),
+  valorUnitario: z.coerce.number().min(0).optional(),
+});
+
+export const manutencaoUpdateSchema = z.object({
+  veiculoId: z.string().min(1),
+  tipoManutencaoId: z.string().min(1),
+  dataRealizada: z.coerce.date(),
+  kmRealizada: z.coerce.number().int().min(0),
+  kmProxima: z.coerce.number().int().min(0).optional(),
+  custo: z.coerce.number().min(0).optional(),
+  observacoes: z.string().optional(),
+  pecas: z.array(pecaManutencaoSchema).min(1, "Informe ao menos uma peça"),
+});
+
+export type ManutencaoUpdateFormData = z.infer<typeof manutencaoUpdateSchema>;

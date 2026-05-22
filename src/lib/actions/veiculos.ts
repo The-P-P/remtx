@@ -23,7 +23,17 @@ export async function getVeiculos(status?: string) {
     where: status ? { status: status as never } : undefined,
     orderBy: { placa: "asc" },
     include: {
-      _count: { select: { problemasCronicos: { where: { ativo: true } } } },
+      _count: {
+        select: {
+          problemasCronicos: { where: { ativo: true } },
+          locacoes: true,
+        },
+      },
+      locacoes: {
+        where: { status: { in: ["ATIVA", "RESERVADA"] } },
+        take: 1,
+        select: { id: true },
+      },
     },
   });
 }
@@ -115,25 +125,72 @@ export async function updateVeiculo(
 export async function deleteVeiculo(id: string): Promise<ActionResult> {
   try {
     await assertVeiculoAccess();
+
+    const veiculo = await prisma.veiculo.findUnique({
+      where: { id },
+      select: { placa: true, status: true },
+    });
+    if (!veiculo) {
+      return { success: false, error: "Veículo não encontrado" };
+    }
+
     const locacaoAtiva = await prisma.locacao.findFirst({
       where: { veiculoId: id, status: { in: ["ATIVA", "RESERVADA"] } },
     });
     if (locacaoAtiva) {
-      return { success: false, error: "Veículo possui locação ativa ou reservada" };
+      return {
+        success: false,
+        error: "Não é possível excluir: veículo com locação ativa ou reservada",
+      };
     }
-    await prisma.veiculo.update({
-      where: { id },
-      data: { status: "INATIVO" },
+
+    const totalLocacoes = await prisma.locacao.count({
+      where: { veiculoId: id },
     });
+
+    if (totalLocacoes === 0) {
+      await prisma.veiculo.delete({ where: { id } });
+    } else {
+      await prisma.veiculo.update({
+        where: { id },
+        data: { status: "INATIVO" },
+      });
+    }
+
     revalidatePath("/veiculos");
+    revalidatePath(`/veiculos/${id}`);
+    revalidatePath("/manutencoes");
     revalidatePath("/");
     return { success: true };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao inativar veículo",
+      error: e instanceof Error ? e.message : "Erro ao excluir veículo",
     };
   }
+}
+
+export async function getVeiculoDeleteInfo(id: string) {
+  const [veiculo, locacaoAtiva, totalLocacoes] = await Promise.all([
+    prisma.veiculo.findUnique({
+      where: { id },
+      select: { placa: true, marca: true, modelo: true, status: true },
+    }),
+    prisma.locacao.findFirst({
+      where: { veiculoId: id, status: { in: ["ATIVA", "RESERVADA"] } },
+      select: { id: true },
+    }),
+    prisma.locacao.count({ where: { veiculoId: id } }),
+  ]);
+
+  if (!veiculo) return null;
+
+  return {
+    veiculo,
+    locacaoAtiva: !!locacaoAtiva,
+    totalLocacoes,
+    modoExclusao: totalLocacoes === 0 ? ("permanente" as const) : ("inativar" as const),
+  };
 }
 
 export async function createProblemaCronico(
