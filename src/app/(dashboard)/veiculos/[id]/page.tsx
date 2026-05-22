@@ -119,15 +119,17 @@ export default async function VeiculoDetalhePage({
                 {veiculo.problemasCronicos.map((p) => (
                   <li
                     key={p.id}
-                    className={`rounded-lg border p-3 ${p.ativo ? "border-red-100 bg-red-50/50" : "opacity-60"}`}
+                    className={`rounded-lg border p-3 ${p.ativo ? "border-red-200/60 bg-red-50/50 dark:border-red-500/40 dark:bg-red-500/10" : "opacity-60"}`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <Badge className={GRAVIDADE_STYLE[p.gravidade]}>
                           {GRAVIDADE_LABEL[p.gravidade]}
                         </Badge>
-                        <p className="mt-2 text-sm">{p.descricao}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="mt-2 text-sm text-foreground dark:text-red-500/90">
+                          {p.descricao}
+                        </p>
+                        <p className="text-xs text-muted-foreground dark:text-red-500/70">
                           {format(p.dataRegistro, "dd/MM/yyyy", { locale: ptBR })}
                         </p>
                       </div>

@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/layout/sidebar";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { ROLE_LABELS } from "@/types";
 import type { UserRole } from "@/types/prisma";
 
@@ -48,7 +49,8 @@ export function Header({ title, subtitle, userName, userRole }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <ThemeSwitcher />
         <div className="hidden text-right sm:block">
           <p className="text-sm font-medium">{userName ?? "Usuário"}</p>
           {userRole && (

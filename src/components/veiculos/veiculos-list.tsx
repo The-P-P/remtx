@@ -85,7 +85,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
             </dl>
 
             {v._count.problemasCronicos > 0 && (
-              <p className="text-xs text-red-600">
+                <p className="text-xs text-red-600 dark:text-red-300">
                 {v._count.problemasCronicos} problema(s) crônico(s)
               </p>
             )}

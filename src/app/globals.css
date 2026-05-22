@@ -1,9 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* Temas escuros: Claro e Lavanda não entram aqui */
+@custom-variant dark (
+  &:is([data-theme="dark"] *, [data-theme="dracula"] *)
+);
 
-:root {
+/* --- Claro (padrão) --- */
+:root,
+[data-theme="light"] {
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -24,6 +29,77 @@
   --input: oklch(0.9 0 0);
   --ring: oklch(0.45 0.15 250);
   --radius: 0.5rem;
+}
+
+/* --- Escuro --- */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.17 0.012 260);
+  --foreground: oklch(0.98 0.004 260);
+  --card: oklch(0.21 0.014 260);
+  --card-foreground: oklch(0.98 0.004 260);
+  --popover: oklch(0.21 0.014 260);
+  --popover-foreground: oklch(0.98 0.004 260);
+  --primary: oklch(0.72 0.12 250);
+  --primary-foreground: oklch(0.14 0.02 260);
+  --secondary: oklch(0.28 0.02 260);
+  --secondary-foreground: oklch(0.94 0.008 260);
+  --muted: oklch(0.28 0.02 260);
+  --muted-foreground: oklch(0.82 0.015 260);
+  --accent: oklch(0.3 0.025 260);
+  --accent-foreground: oklch(0.96 0.008 260);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.38 0.02 260);
+  --input: oklch(0.3 0.02 260);
+  --ring: oklch(0.72 0.12 250);
+}
+
+/* --- Drácula (azul escuro) --- */
+[data-theme="dracula"] {
+  color-scheme: dark;
+  --background: oklch(0.24 0.055 265);
+  --foreground: oklch(0.98 0.008 265);
+  --card: oklch(0.28 0.06 265);
+  --card-foreground: oklch(0.98 0.008 265);
+  --popover: oklch(0.28 0.06 265);
+  --popover-foreground: oklch(0.98 0.008 265);
+  --primary: oklch(0.78 0.13 210);
+  --primary-foreground: oklch(0.16 0.05 265);
+  --secondary: oklch(0.34 0.065 265);
+  --secondary-foreground: oklch(0.94 0.02 265);
+  --muted: oklch(0.32 0.055 265);
+  --muted-foreground: oklch(0.84 0.025 265);
+  --accent: oklch(0.36 0.08 280);
+  --accent-foreground: oklch(0.96 0.02 265);
+  --destructive: oklch(0.68 0.2 15);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.42 0.06 265);
+  --input: oklch(0.32 0.055 265);
+  --ring: oklch(0.78 0.13 210);
+}
+
+/* --- Lavanda (roxo e rosa) --- */
+[data-theme="lavanda"] {
+  --background: oklch(0.98 0.02 320);
+  --foreground: oklch(0.28 0.06 320);
+  --card: oklch(1 0.015 330);
+  --card-foreground: oklch(0.28 0.06 320);
+  --popover: oklch(1 0.015 330);
+  --popover-foreground: oklch(0.28 0.06 320);
+  --primary: oklch(0.52 0.22 330);
+  --primary-foreground: oklch(0.99 0.01 330);
+  --secondary: oklch(0.94 0.04 340);
+  --secondary-foreground: oklch(0.38 0.1 330);
+  --muted: oklch(0.95 0.03 330);
+  --muted-foreground: oklch(0.5 0.06 320);
+  --accent: oklch(0.92 0.06 350);
+  --accent-foreground: oklch(0.4 0.12 330);
+  --destructive: oklch(0.58 0.2 15);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0.04 330);
+  --input: oklch(0.92 0.03 330);
+  --ring: oklch(0.58 0.2 330);
 }
 
 @theme inline {
@@ -58,4 +134,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Transição suave ao trocar tema */
+html {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
