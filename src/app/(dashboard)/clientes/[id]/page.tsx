@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Calendar } from "lucide-react";
 import { getClienteById } from "@/lib/actions/clientes";
 import { deleteClienteAction } from "@/lib/actions/form-actions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -45,9 +45,9 @@ export default async function ClienteDetalhePage({
               Editar
             </Button>
             <Button
-              variant="outline"
-              render={<Link href={`/locacoes/nova?clienteId=${id}`} />}
+              render={<Link href={`/clientes/${id}/locacoes/nova`} />}
             >
+              <Calendar className="size-4" />
               Nova locação
             </Button>
             {!temLocacaoAtiva && (
@@ -88,12 +88,28 @@ export default async function ClienteDetalhePage({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Histórico de locações</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/clientes/${id}/locacoes/nova`} />}
+          >
+            <Calendar className="size-4" />
+            Nova
+          </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           {cliente.locacoes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma locação.</p>
+            <p className="text-sm text-muted-foreground">
+              Nenhuma locação.{" "}
+              <Link
+                href={`/clientes/${id}/locacoes/nova`}
+                className="underline"
+              >
+                Criar primeira locação
+              </Link>
+            </p>
           ) : (
             cliente.locacoes.map((l) => (
               <Link

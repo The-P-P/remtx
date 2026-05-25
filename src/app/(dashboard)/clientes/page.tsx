@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Calendar } from "lucide-react";
 import { getClientes } from "@/lib/actions/clientes";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageActions } from "@/components/shared/page-actions";
@@ -22,7 +22,18 @@ export default async function ClientesPage({
         description="Cadastro de clientes da locadora"
         action={
           <PageActions>
-            <Button className="w-full sm:w-auto" render={<Link href="/clientes/novo" />}>
+            <Button
+              className="w-full sm:w-auto"
+              render={<Link href="/clientes/locacoes/nova" />}
+            >
+              <Calendar className="size-4" />
+              Nova locação
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              render={<Link href="/clientes/novo" />}
+            >
               <Plus className="size-4" />
               Novo cliente
             </Button>

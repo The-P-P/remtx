@@ -38,16 +38,23 @@ function eventosUrl(ano: number, mes: number, dia?: number) {
   return dia ? `${base}&dia=${dia}` : base;
 }
 
+type VeiculoOption = { id: string; placa: string; marca: string; modelo: string };
+type ClienteOption = { id: string; nome: string };
+
 export function AgendaCalendar({
   eventos,
   ano,
   mes,
   diaSelecionado,
+  veiculos,
+  clientes,
 }: {
   eventos: AgendaEventoSerializado[];
   ano: number;
   mes: number;
   diaSelecionado?: number;
+  veiculos: VeiculoOption[];
+  clientes: ClienteOption[];
 }) {
   const referencia = new Date(ano, mes - 1, 1);
   const inicioMes = startOfMonth(referencia);
@@ -221,6 +228,12 @@ export function AgendaCalendar({
             <AgendaTarefasDia
               tarefas={eventosDiaSelecionado}
               diaLabel={`${eventosDiaSelecionado.length} tarefa(s) — marque como feito ou reagende`}
+              dataPadrao={format(diaAtivo, "yyyy-MM-dd")}
+              ano={ano}
+              mes={mes}
+              dia={diaAtivo.getDate()}
+              veiculos={veiculos}
+              clientes={clientes}
             />
           ) : (
             <p className="text-sm text-muted-foreground">

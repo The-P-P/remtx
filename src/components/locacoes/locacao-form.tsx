@@ -36,6 +36,8 @@ export function LocacaoForm({
   veiculoIdPreselect,
   clienteIdPreselect,
   cancelHref = "/locacoes/contratos",
+  retornoCliente = false,
+  clienteIdFixo,
 }: {
   action: FormAction;
   veiculos: VeiculoOption[];
@@ -43,6 +45,8 @@ export function LocacaoForm({
   veiculoIdPreselect?: string;
   clienteIdPreselect?: string;
   cancelHref?: string;
+  retornoCliente?: boolean;
+  clienteIdFixo?: string;
 }) {
   const hoje = format(new Date(), "yyyy-MM-dd");
   const [veiculoId, setVeiculoId] = useState(veiculoIdPreselect ?? "");
@@ -62,6 +66,9 @@ export function LocacaoForm({
 
   return (
     <form action={formAction} className="w-full max-w-xl space-y-4">
+      {retornoCliente && (
+        <input type="hidden" name="retornoCliente" value="sim" />
+      )}
       {state.success === false && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
           {state.error}
@@ -71,25 +78,37 @@ export function LocacaoForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="clienteId">Cliente *</Label>
-          <select
-            id="clienteId"
-            name="clienteId"
-            defaultValue={clienteIdPreselect ?? ""}
-            required
-            className={selectClass}
-          >
-            <option value="">Selecione...</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            <Link href="/clientes/novo" className="underline">
-              Cadastrar novo cliente
-            </Link>
-          </p>
+          {clienteIdFixo ? (
+            <>
+              <input type="hidden" name="clienteId" value={clienteIdFixo} />
+              <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm font-medium">
+                {clientes.find((c) => c.id === clienteIdFixo)?.nome ??
+                  "Cliente selecionado"}
+              </p>
+            </>
+          ) : (
+            <>
+              <select
+                id="clienteId"
+                name="clienteId"
+                defaultValue={clienteIdPreselect ?? ""}
+                required
+                className={selectClass}
+              >
+                <option value="">Selecione...</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                <Link href="/clientes/novo" className="underline">
+                  Cadastrar novo cliente
+                </Link>
+              </p>
+            </>
+          )}
         </div>
 
         <div className="space-y-2 sm:col-span-2">

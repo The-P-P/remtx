@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { getClientes } from "@/lib/actions/clientes";
@@ -53,6 +53,17 @@ export function ClientesList({ clientes }: { clientes: ClienteItem[] }) {
             <p className="text-xs text-muted-foreground">
               {c._count.locacoes} locação(ões)
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              render={
+                <Link href={`/clientes/${c.id}/locacoes/nova`} />
+              }
+            >
+              <Calendar className="size-4" />
+              Nova locação
+            </Button>
           </CardContent>
         </Card>
       ))}

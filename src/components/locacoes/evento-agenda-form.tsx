@@ -40,7 +40,12 @@ export function EventoAgendaForm({
 
       <div className="space-y-2">
         <Label htmlFor="titulo">Título *</Label>
-        <Input id="titulo" name="titulo" required placeholder="Ex.: IPVA Gol" />
+        <Input
+          id="titulo"
+          name="titulo"
+          required
+          placeholder="Ex.: Entrega de veículo — ABC1D23"
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -100,7 +105,7 @@ export function EventoAgendaForm({
 
       <FormActionsRow>
         <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-          {pending ? "Salvando..." : "Salvar lembrete"}
+          {pending ? "Salvando..." : "Salvar tarefa"}
         </Button>
         <Button
           variant="outline"

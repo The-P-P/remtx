@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+const tiposManuais = [
+  "ENTREGA_VEICULO",
+  "RETIRADA_VEICULO",
+  "OFICINA_SERVICO",
+  "MANUTENCAO_AGENDADA",
+  "LEMBRETE",
+  "IPVA",
+  "FINANCEIRO",
+] as const;
+
 export const eventoAgendaSchema = z.object({
   titulo: z.string().min(2, "Título obrigatório"),
   descricao: z.string().optional(),
@@ -7,14 +17,8 @@ export const eventoAgendaSchema = z.object({
   dataFim: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 0 ? new Date(v) : undefined)),
-  tipo: z.enum([
-    "PAGAMENTO_CLIENTE",
-    "MANUTENCAO_AGENDADA",
-    "IPVA",
-    "LEMBRETE",
-    "FINANCEIRO",
-  ]),
+    .transform((v) => (v && v.length > 0 ? new Date(v + "T12:00:00") : undefined)),
+  tipo: z.enum(tiposManuais),
   valor: z
     .string()
     .optional()

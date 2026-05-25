@@ -4,6 +4,9 @@ import {
   type AgendaEventoSerializado,
 } from "@/components/locacoes/agenda-calendar";
 import { getEventosAgendaMes } from "@/lib/agenda";
+import { getVeiculosDisponiveisParaLocacao } from "@/lib/actions/locacoes";
+import { getClientesParaSelect } from "@/lib/actions/clientes";
+import { prisma } from "@/lib/prisma";
 
 export default async function AgendaPage({
   searchParams,
@@ -19,7 +22,19 @@ export default async function AgendaPage({
       : agora.getMonth() + 1;
   const dia = params.dia ? Number(params.dia) : undefined;
 
-  const eventosRaw = await getEventosAgendaMes(ano, mes);
+  const [eventosRaw, veiculosLocacao, clientes, veiculosAgenda] =
+    await Promise.all([
+      getEventosAgendaMes(ano, mes),
+      getVeiculosDisponiveisParaLocacao(),
+      getClientesParaSelect(),
+      prisma.veiculo.findMany({
+        where: { status: { not: "INATIVO" } },
+        orderBy: { placa: "asc" },
+        select: { id: true, placa: true, marca: true, modelo: true },
+      }),
+    ]);
+
+  const veiculos = veiculosAgenda.length > 0 ? veiculosAgenda : veiculosLocacao;
   const eventos: AgendaEventoSerializado[] = eventosRaw.map((e) => ({
     id: e.id,
     chave: e.chave,
@@ -40,6 +55,8 @@ export default async function AgendaPage({
         ano={ano}
         mes={mes}
         diaSelecionado={dia}
+        veiculos={veiculos}
+        clientes={clientes}
       />
     </LocacoesSection>
   );

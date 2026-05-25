@@ -198,6 +198,11 @@ export async function submitNovaLocacao(
 ): Promise<FormState> {
   const result = await createLocacao(formData);
   if (result.success && result.data) {
+    const retornoCliente = formData.get("retornoCliente") === "sim";
+    const clienteId = formData.get("clienteId");
+    if (retornoCliente && typeof clienteId === "string" && clienteId) {
+      redirect(`/clientes/${clienteId}`);
+    }
     redirect(`/locacoes/${result.data.id}`);
   }
   return {
@@ -227,11 +232,20 @@ export async function submitNovoEventoAgenda(
 ): Promise<FormState> {
   const result = await createEventoAgenda(formData);
   if (result.success) {
+    if (formData.get("semRedirect") === "sim") {
+      return { success: true };
+    }
+    const ano = formData.get("redirectAno");
+    const mes = formData.get("redirectMes");
+    const dia = formData.get("redirectDia");
+    if (ano && mes && dia) {
+      redirect(`/locacoes?ano=${ano}&mes=${mes}&dia=${dia}`);
+    }
     redirect("/locacoes");
   }
   return {
     success: false,
-    error: !result.success ? result.error : "Erro ao criar lembrete",
+    error: !result.success ? result.error : "Erro ao criar tarefa",
   };
 }
 

@@ -106,7 +106,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 )}
                 {v.status === "DISPONIVEL" && (
                   <Link
-                    href={`/locacoes/nova?veiculoId=${v.id}`}
+                    href={`/clientes/locacoes/nova?veiculoId=${v.id}`}
                     className="text-primary hover:underline"
                   >
                     Alugar

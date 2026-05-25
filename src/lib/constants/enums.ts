@@ -64,10 +64,13 @@ export const STATUS_LOCACAO_STYLE: Record<StatusLocacao, string> = {
 };
 
 export const TIPO_EVENTO_AGENDA_LABEL: Record<TipoEventoAgenda, string> = {
-  LOCACAO_INICIO: "Retirada",
+  LOCACAO_INICIO: "Retirada (contrato)",
   LOCACAO_FIM_PREVISTO: "Devolução prevista",
   LOCACAO_FIM_REAL: "Devolução",
   PAGAMENTO_CLIENTE: "Pagamento cliente",
+  ENTREGA_VEICULO: "Entrega de veículo",
+  RETIRADA_VEICULO: "Buscar / retirar veículo",
+  OFICINA_SERVICO: "Oficina / serviço",
   MANUTENCAO_AGENDADA: "Manutenção agendada",
   IPVA: "IPVA",
   LEMBRETE: "Lembrete",
@@ -83,6 +86,12 @@ export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
     "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   PAGAMENTO_CLIENTE:
     "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  ENTREGA_VEICULO:
+    "bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-500/30",
+  RETIRADA_VEICULO:
+    "bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-500/30",
+  OFICINA_SERVICO:
+    "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/30",
   MANUTENCAO_AGENDADA:
     "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
   IPVA:
@@ -93,13 +102,17 @@ export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
     "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
 };
 
+/** Tipos que o usuário pode criar manualmente na agenda. */
 export const TIPO_EVENTO_AGENDA_FORM: {
   value: TipoEventoAgenda;
   label: string;
+  tituloPadrao: string;
 }[] = [
-  { value: "LEMBRETE", label: "Lembrete geral" },
-  { value: "PAGAMENTO_CLIENTE", label: "Pagamento de cliente" },
-  { value: "MANUTENCAO_AGENDADA", label: "Manutenção agendada" },
-  { value: "IPVA", label: "IPVA / imposto" },
-  { value: "FINANCEIRO", label: "Conta / financeiro" },
+  { value: "ENTREGA_VEICULO", label: "Entrega de veículo ao cliente", tituloPadrao: "Entrega de veículo" },
+  { value: "RETIRADA_VEICULO", label: "Buscar / retirar veículo", tituloPadrao: "Buscar veículo" },
+  { value: "OFICINA_SERVICO", label: "Levar à oficina / serviço", tituloPadrao: "Veículo na oficina" },
+  { value: "MANUTENCAO_AGENDADA", label: "Manutenção agendada", tituloPadrao: "Manutenção agendada" },
+  { value: "LEMBRETE", label: "Outro lembrete", tituloPadrao: "Tarefa" },
+  { value: "IPVA", label: "IPVA / imposto", tituloPadrao: "IPVA" },
+  { value: "FINANCEIRO", label: "Conta / pagamento empresa", tituloPadrao: "Pagamento" },
 ];

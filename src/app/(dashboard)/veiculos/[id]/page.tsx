@@ -57,7 +57,7 @@ export default async function VeiculoDetalhePage({
               <Button
                 variant="outline"
                 className="w-full sm:w-auto"
-                render={<Link href={`/locacoes/nova?veiculoId=${id}`} />}
+                render={<Link href={`/clientes/locacoes/nova?veiculoId=${id}`} />}
               >
                 <Calendar className="size-4" />
                 Nova locação
@@ -193,7 +193,7 @@ export default async function VeiculoDetalhePage({
               <Button
                 variant="outline"
                 size="sm"
-                render={<Link href={`/locacoes/nova?veiculoId=${id}`} />}
+                render={<Link href={`/clientes/locacoes/nova?veiculoId=${id}`} />}
               >
                 Nova
               </Button>

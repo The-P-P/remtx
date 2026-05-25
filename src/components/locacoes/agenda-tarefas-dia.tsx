@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Settings2,
   Banknote,
+  Plus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,12 @@ import {
   confirmarPagamentoParcela,
   ajustarPagamentoParcela,
 } from "@/lib/actions/agenda-tarefas";
+import { AgendaNovaTarefaForm } from "@/components/locacoes/agenda-nova-tarefa-form";
+import { submitNovoEventoAgenda } from "@/lib/actions/form-actions";
 import type { TipoEventoAgenda } from "@/types/prisma";
+
+type VeiculoOption = { id: string; placa: string; marca: string; modelo: string };
+type ClienteOption = { id: string; nome: string };
 
 export type TarefaAgendaSerializada = {
   id: string;
@@ -58,14 +64,26 @@ export type TarefaAgendaSerializada = {
   };
 };
 
-type DialogMode = "reagendar" | "ajustar" | "confirmar" | null;
+type DialogMode = "reagendar" | "ajustar" | "confirmar" | "nova-tarefa" | null;
 
 export function AgendaTarefasDia({
   tarefas,
   diaLabel,
+  dataPadrao,
+  ano,
+  mes,
+  dia,
+  veiculos,
+  clientes,
 }: {
   tarefas: TarefaAgendaSerializada[];
   diaLabel: string;
+  dataPadrao: string;
+  ano: number;
+  mes: number;
+  dia: number;
+  veiculos: VeiculoOption[];
+  clientes: ClienteOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -97,24 +115,49 @@ export function AgendaTarefasDia({
     setErro(null);
   }
 
-  if (tarefas.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Nenhuma tarefa neste dia.
-      </p>
-    );
-  }
+  const isPagamentoTipo = (tipo: TipoEventoAgenda) => tipo === "PAGAMENTO_CLIENTE";
+  const isTarefaManual = (t: TarefaAgendaSerializada) =>
+    t.referenciaTipo === "evento" ||
+    [
+      "ENTREGA_VEICULO",
+      "RETIRADA_VEICULO",
+      "OFICINA_SERVICO",
+      "MANUTENCAO_AGENDADA",
+      "LEMBRETE",
+      "IPVA",
+      "FINANCEIRO",
+    ].includes(t.tipo);
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">{diaLabel}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">{diaLabel}</p>
+        <Button
+          size="sm"
+          onClick={() => {
+            setDialog("nova-tarefa");
+            setErro(null);
+          }}
+        >
+          <Plus className="size-4" />
+          Adicionar tarefa
+        </Button>
+      </div>
       {erro && !dialog && (
         <p className="text-sm text-red-600 dark:text-red-400">{erro}</p>
       )}
 
+      {tarefas.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma tarefa neste dia. Use &quot;Adicionar tarefa&quot; para entrega,
+          retirada, oficina, etc.
+        </p>
+      )}
+
       {tarefas.map((t) => {
         const concluido = t.meta?.concluido;
-        const isPagamento = t.tipo === "PAGAMENTO_CLIENTE";
+        const isPagamento = isPagamentoTipo(t.tipo);
+        const tarefaCheck = isTarefaManual(t) || t.chave.startsWith("loc-") || t.chave.startsWith("ipva-");
 
         return (
           <div
@@ -213,7 +256,7 @@ export function AgendaTarefasDia({
                 </Button>
               )}
 
-              {!isPagamento && !concluido && (
+              {tarefaCheck && !isPagamento && !concluido && (
                 <>
                   <Button
                     size="sm"
@@ -243,7 +286,7 @@ export function AgendaTarefasDia({
                 </>
               )}
 
-              {!isPagamento && concluido && (
+              {tarefaCheck && !isPagamento && concluido && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -270,6 +313,7 @@ export function AgendaTarefasDia({
               {dialog === "confirmar" && "Confirmar pagamento"}
               {dialog === "reagendar" && "Reagendar tarefa"}
               {dialog === "ajustar" && "Ajustar pagamento (check esquecido)"}
+              {dialog === "nova-tarefa" && "Nova tarefa neste dia"}
             </DialogTitle>
           </DialogHeader>
 
@@ -350,6 +394,23 @@ export function AgendaTarefasDia({
                 Reagendar
               </Button>
             </form>
+          )}
+
+          {dialog === "nova-tarefa" && (
+            <AgendaNovaTarefaForm
+              action={submitNovoEventoAgenda}
+              veiculos={veiculos}
+              clientes={clientes}
+              dataPadrao={dataPadrao}
+              redirectAno={ano}
+              redirectMes={mes}
+              redirectDia={dia}
+              onSuccess={() => {
+                setDialog(null);
+                router.refresh();
+              }}
+              onCancel={() => setDialog(null)}
+            />
           )}
 
           {dialog === "ajustar" && tarefaAtiva && (

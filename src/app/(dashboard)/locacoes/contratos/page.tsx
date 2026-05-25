@@ -41,6 +41,13 @@ export default async function ContratosPage({
           </Link>
         ))}
       </div>
+      <p className="text-sm text-muted-foreground">
+        Para abrir contrato novo, use a aba{" "}
+        <Link href="/clientes" className="underline">
+          Clientes
+        </Link>
+        .
+      </p>
       <LocacoesList locacoes={locacoes} />
     </LocacoesSection>
   );
