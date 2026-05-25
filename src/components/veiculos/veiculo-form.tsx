@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
 import type { StatusVeiculo } from "@/types/prisma";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
@@ -26,6 +27,7 @@ type VeiculoFormProps = {
     kmProximaRevisao: number;
     status: StatusVeiculo;
     observacoes?: string | null;
+    ipvaVencimento?: Date | null;
   };
   submitLabel: string;
   cancelHref: string;
@@ -119,6 +121,23 @@ export function VeiculoForm({
             required
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ipvaVencimento">Vencimento IPVA (anual)</Label>
+        <Input
+          id="ipvaVencimento"
+          name="ipvaVencimento"
+          type="date"
+          defaultValue={
+            initial?.ipvaVencimento
+              ? format(initial.ipvaVencimento, "yyyy-MM-dd")
+              : ""
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          Aparece na agenda todo ano nesta data.
+        </p>
       </div>
 
       <div className="space-y-2">

@@ -96,6 +96,22 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 >
                   Manutenções
                 </Link>
+                {v.locacoes[0] && (
+                  <Link
+                    href={`/locacoes/${v.locacoes[0].id}`}
+                    className="text-primary hover:underline"
+                  >
+                    Locação
+                  </Link>
+                )}
+                {v.status === "DISPONIVEL" && (
+                  <Link
+                    href={`/locacoes/nova?veiculoId=${v.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    Alugar
+                  </Link>
+                )}
               </div>
           </CardContent>
         </Card>

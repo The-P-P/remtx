@@ -15,6 +15,17 @@ import {
   updateTipoManutencao,
   deleteTipoManutencao,
 } from "@/lib/actions/manutencoes";
+import {
+  createCliente,
+  updateCliente,
+  deleteCliente,
+} from "@/lib/actions/clientes";
+import {
+  createLocacao,
+  updateLocacao,
+  createParcela,
+} from "@/lib/actions/locacoes";
+import { createEventoAgenda } from "@/lib/actions/eventos-agenda";
 import type { FormState } from "@/types/form";
 
 export async function submitNovoVeiculo(
@@ -142,4 +153,99 @@ export async function deleteTipoManutencaoAction(id: string) {
     redirect("/manutencoes/tipos");
   }
   throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function submitNovoCliente(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await createCliente(formData);
+  if (result.success && result.data) {
+    redirect(`/clientes/${result.data.id}`);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao cadastrar",
+  };
+}
+
+export async function submitEditarCliente(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateCliente(id, formData);
+  if (result.success) {
+    redirect(`/clientes/${id}`);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao salvar",
+  };
+}
+
+export async function deleteClienteAction(id: string) {
+  const result = await deleteCliente(id);
+  if (result.success) {
+    redirect("/clientes");
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function submitNovaLocacao(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await createLocacao(formData);
+  if (result.success && result.data) {
+    redirect(`/locacoes/${result.data.id}`);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao criar locação",
+  };
+}
+
+export async function submitEditarLocacao(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateLocacao(id, formData);
+  if (result.success) {
+    redirect(`/locacoes/${id}`);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao salvar",
+  };
+}
+
+export async function submitNovoEventoAgenda(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await createEventoAgenda(formData);
+  if (result.success) {
+    redirect("/locacoes");
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao criar lembrete",
+  };
+}
+
+export async function submitNovaParcela(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const locacaoId = formData.get("locacaoId");
+  const result = await createParcela(formData);
+  if (result.success && typeof locacaoId === "string") {
+    redirect(`/locacoes/${locacaoId}`);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao criar parcela",
+  };
 }

@@ -2,6 +2,7 @@ export type {
   UserRole,
   StatusVeiculo,
   StatusLocacao,
+  TipoEventoAgenda,
   TipoTransacao,
   AlertaManutencao,
   GravidadeProblema,

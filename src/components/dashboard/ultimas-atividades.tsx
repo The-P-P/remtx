@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,14 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import { STATUS_LOCACAO_LABEL } from "@/lib/constants/enums";
 import type { StatusLocacao, TipoTransacao } from "@/types/prisma";
-
-const STATUS_LOCACAO: Record<StatusLocacao, string> = {
-  RESERVADA: "Reservada",
-  ATIVA: "Ativa",
-  FINALIZADA: "Finalizada",
-  CANCELADA: "Cancelada",
-};
 
 interface LocacaoItem {
   id: string;
@@ -63,7 +58,14 @@ export function UltimasLocacoes({ locacoes }: { locacoes: LocacaoItem[] }) {
             ) : (
               locacoes.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.cliente.nome}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/locacoes/${l.id}`}
+                      className="hover:underline"
+                    >
+                      {l.cliente.nome}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {l.veiculo.placa} — {l.veiculo.modelo}
                   </TableCell>
@@ -71,7 +73,9 @@ export function UltimasLocacoes({ locacoes }: { locacoes: LocacaoItem[] }) {
                     {format(l.dataInicio, "dd/MM/yyyy", { locale: ptBR })}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{STATUS_LOCACAO[l.status]}</Badge>
+                    <Badge variant="outline">
+                      {STATUS_LOCACAO_LABEL[l.status]}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))

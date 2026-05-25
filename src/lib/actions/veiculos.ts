@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { veiculoSchema, problemaCronicoSchema } from "@/lib/validations/veiculo";
-import { calcularAlertaKm } from "@/lib/manutencao-alerts";
-
 export type ActionResult<T = void> =
   | { success: true; data?: T }
   | { success: false; error: string };
@@ -32,7 +30,7 @@ export async function getVeiculos(status?: string) {
       locacoes: {
         where: { status: { in: ["ATIVA", "RESERVADA"] } },
         take: 1,
-        select: { id: true },
+        select: { id: true, status: true },
       },
     },
   });
@@ -51,6 +49,13 @@ export async function getVeiculoById(id: string) {
       },
       _count: { select: { manutencoes: true } },
       problemasCronicos: { orderBy: { dataRegistro: "desc" } },
+      locacoes: {
+        orderBy: { dataInicio: "desc" },
+        take: 10,
+        include: {
+          cliente: { select: { id: true, nome: true } },
+        },
+      },
     },
   });
 }
@@ -70,6 +75,7 @@ export async function createVeiculo(
       kmProximaRevisao: formData.get("kmProximaRevisao"),
       status: formData.get("status"),
       observacoes: formData.get("observacoes") || undefined,
+      ipvaVencimento: formData.get("ipvaVencimento") || undefined,
     });
 
     if (!parsed.success) {
@@ -105,6 +111,7 @@ export async function updateVeiculo(
       kmProximaRevisao: formData.get("kmProximaRevisao"),
       status: formData.get("status"),
       observacoes: formData.get("observacoes") || undefined,
+      ipvaVencimento: formData.get("ipvaVencimento") || undefined,
     });
 
     if (!parsed.success) {
@@ -112,6 +119,7 @@ export async function updateVeiculo(
     }
 
     await prisma.veiculo.update({ where: { id }, data: parsed.data });
+    revalidatePath("/locacoes");
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${id}`);
     revalidatePath("/");

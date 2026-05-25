@@ -14,6 +14,10 @@ export const veiculoSchema = z.object({
   kmProximaRevisao: z.coerce.number().int().min(0),
   status: z.enum(["DISPONIVEL", "ALUGADO", "EM_MANUTENCAO", "INATIVO"]),
   observacoes: z.string().optional(),
+  ipvaVencimento: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? new Date(v + "T12:00:00") : null)),
 });
 
 export type VeiculoFormData = z.infer<typeof veiculoSchema>;

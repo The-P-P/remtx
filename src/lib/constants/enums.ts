@@ -1,5 +1,7 @@
 import type {
   StatusVeiculo,
+  StatusLocacao,
+  TipoEventoAgenda,
   GravidadeProblema,
   AlertaManutencao,
 } from "@/types/prisma";
@@ -42,3 +44,62 @@ export const ALERTA_LABEL: Record<AlertaManutencao, string> = {
   AMARELO: "Próximo",
   VERMELHO: "Vencido",
 };
+
+export const STATUS_LOCACAO_LABEL: Record<StatusLocacao, string> = {
+  RESERVADA: "Reservada",
+  ATIVA: "Ativa",
+  FINALIZADA: "Finalizada",
+  CANCELADA: "Cancelada",
+};
+
+export const STATUS_LOCACAO_STYLE: Record<StatusLocacao, string> = {
+  RESERVADA:
+    "bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-200",
+  ATIVA:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-200",
+  FINALIZADA:
+    "bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200",
+  CANCELADA:
+    "bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-200",
+};
+
+export const TIPO_EVENTO_AGENDA_LABEL: Record<TipoEventoAgenda, string> = {
+  LOCACAO_INICIO: "Retirada",
+  LOCACAO_FIM_PREVISTO: "Devolução prevista",
+  LOCACAO_FIM_REAL: "Devolução",
+  PAGAMENTO_CLIENTE: "Pagamento cliente",
+  MANUTENCAO_AGENDADA: "Manutenção agendada",
+  IPVA: "IPVA",
+  LEMBRETE: "Lembrete",
+  FINANCEIRO: "Financeiro",
+};
+
+export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
+  LOCACAO_INICIO:
+    "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  LOCACAO_FIM_PREVISTO:
+    "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+  LOCACAO_FIM_REAL:
+    "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  PAGAMENTO_CLIENTE:
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  MANUTENCAO_AGENDADA:
+    "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  IPVA:
+    "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
+  LEMBRETE:
+    "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
+  FINANCEIRO:
+    "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+};
+
+export const TIPO_EVENTO_AGENDA_FORM: {
+  value: TipoEventoAgenda;
+  label: string;
+}[] = [
+  { value: "LEMBRETE", label: "Lembrete geral" },
+  { value: "PAGAMENTO_CLIENTE", label: "Pagamento de cliente" },
+  { value: "MANUTENCAO_AGENDADA", label: "Manutenção agendada" },
+  { value: "IPVA", label: "IPVA / imposto" },
+  { value: "FINANCEIRO", label: "Conta / financeiro" },
+];

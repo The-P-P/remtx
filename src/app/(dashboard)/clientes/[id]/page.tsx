@@ -1,0 +1,120 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Pencil, Trash2 } from "lucide-react";
+import { getClienteById } from "@/lib/actions/clientes";
+import { deleteClienteAction } from "@/lib/actions/form-actions";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageActions } from "@/components/shared/page-actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocacaoStatusBadge } from "@/components/locacoes/locacao-status-badge";
+
+function formatCpf(cpf: string) {
+  if (cpf.length !== 11) return cpf;
+  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
+
+export default async function ClienteDetalhePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const cliente = await getClienteById(id);
+  if (!cliente) notFound();
+
+  const temLocacaoAtiva = cliente.locacoes.some((l) =>
+    ["ATIVA", "RESERVADA"].includes(l.status)
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={cliente.nome}
+        description={formatCpf(cliente.cpf)}
+        backHref="/clientes"
+        action={
+          <PageActions>
+            <Button
+              variant="outline"
+              render={<Link href={`/clientes/${id}/editar`} />}
+            >
+              <Pencil className="size-4" />
+              Editar
+            </Button>
+            <Button
+              variant="outline"
+              render={<Link href={`/locacoes/nova?clienteId=${id}`} />}
+            >
+              Nova locação
+            </Button>
+            {!temLocacaoAtiva && (
+              <form action={deleteClienteAction.bind(null, id)}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="size-4" />
+                  Excluir
+                </Button>
+              </form>
+            )}
+          </PageActions>
+        }
+      />
+
+      <Card>
+        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">Telefone</p>
+            <p className="font-medium">{cliente.telefone}</p>
+          </div>
+          {cliente.email && (
+            <div>
+              <p className="text-xs text-muted-foreground">E-mail</p>
+              <p className="font-medium">{cliente.email}</p>
+            </div>
+          )}
+          {cliente.endereco && (
+            <div className="sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Endereço</p>
+              <p className="font-medium">{cliente.endereco}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Histórico de locações</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {cliente.locacoes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma locação.</p>
+          ) : (
+            cliente.locacoes.map((l) => (
+              <Link
+                key={l.id}
+                href={`/locacoes/${l.id}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+              >
+                <div>
+                  <p className="font-medium">
+                    {l.veiculo.placa} — {l.veiculo.modelo}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(l.dataInicio, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+                <LocacaoStatusBadge status={l.status} />
+              </Link>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

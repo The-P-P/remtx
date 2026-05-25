@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { TIPOS_MANUTENCAO_PREVENTIVA } from "./data/tipos-manutencao-preventiva";
+import { listarVencimentosSemanais } from "../src/lib/parcelas-semanais";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -80,6 +81,9 @@ async function main() {
     }),
   ]);
 
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
   const veiculos = await Promise.all([
     prisma.veiculo.upsert({
       where: { placa: "ABC1D23" },
@@ -93,6 +97,7 @@ async function main() {
         kmAtual: 48500,
         kmProximaRevisao: 50000,
         status: "DISPONIVEL",
+        ipvaVencimento: new Date(hoje.getFullYear(), 2, 15),
       },
     }),
     prisma.veiculo.upsert({
@@ -107,6 +112,7 @@ async function main() {
         kmAtual: 31200,
         kmProximaRevisao: 32000,
         status: "ALUGADO",
+        ipvaVencimento: new Date(hoje.getFullYear(), 5, 20),
       },
     }),
     prisma.veiculo.upsert({
@@ -165,9 +171,6 @@ async function main() {
     });
   }
 
-  const hoje = new Date();
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-
   const manutencaoCount = await prisma.manutencao.count();
   if (manutencaoCount === 0) {
     await prisma.manutencao.createMany({
@@ -195,29 +198,100 @@ async function main() {
   }
 
   const locacaoCount = await prisma.locacao.count();
+  let locacaoAtivaId: string | null = null;
   if (locacaoCount === 0) {
-    await prisma.locacao.createMany({
+    const locAtiva = await prisma.locacao.create({
+      data: {
+        veiculoId: veiculos[1].id,
+        clienteId: cliente.id,
+        dataInicio: new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000),
+        dataFimPrevista: new Date(hoje.getTime() + 4 * 24 * 60 * 60 * 1000),
+        kmInicio: 31000,
+        valorDiaria: 350,
+        status: "ATIVA",
+      },
+    });
+    locacaoAtivaId = locAtiva.id;
+    const fimAtiva = new Date(hoje.getTime() + 4 * 24 * 60 * 60 * 1000);
+    const vencimentosAtiva = listarVencimentosSemanais(locAtiva.dataInicio, fimAtiva);
+    await prisma.parcelaLocacao.createMany({
+      data: vencimentosAtiva.map((dataVencimento, i) => ({
+        locacaoId: locAtiva.id,
+        valorBase: 350,
+        valorJuros: 0,
+        valor: 350,
+        dataVencimento,
+        dataVencimentoOriginal: dataVencimento,
+        observacoes: `Semana ${i + 1}`,
+      })),
+    });
+
+    const inicioFin = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fimFin = new Date(hoje.getTime() - 25 * 24 * 60 * 60 * 1000);
+    const semanasFin = listarVencimentosSemanais(inicioFin, fimFin).length;
+    await prisma.locacao.create({
+      data: {
+        veiculoId: veiculos[0].id,
+        clienteId: cliente.id,
+        dataInicio: inicioFin,
+        dataFimPrevista: fimFin,
+        dataFimReal: fimFin,
+        kmInicio: 47000,
+        kmFim: 48500,
+        valorDiaria: 280,
+        valorTotal: semanasFin * 280,
+        status: "FINALIZADA",
+      },
+    });
+  } else {
+    const ativa = await prisma.locacao.findFirst({
+      where: { status: "ATIVA" },
+    });
+    locacaoAtivaId = ativa?.id ?? null;
+  }
+
+  if (locacaoAtivaId) {
+    const locAtivaExistente = await prisma.locacao.findUnique({
+      where: { id: locacaoAtivaId },
+    });
+    const parcelaCount = await prisma.parcelaLocacao.count({
+      where: { locacaoId: locacaoAtivaId },
+    });
+    if (parcelaCount === 0 && locAtivaExistente?.status === "ATIVA") {
+      const vencimentos = listarVencimentosSemanais(
+        locAtivaExistente.dataInicio,
+        locAtivaExistente.dataFimPrevista
+      );
+      const valorSem = Number(locAtivaExistente.valorDiaria);
+      await prisma.parcelaLocacao.createMany({
+        data: vencimentos.map((dataVencimento, i) => ({
+          locacaoId: locacaoAtivaId,
+          valorBase: valorSem,
+          valorJuros: 0,
+          valor: valorSem,
+          dataVencimento,
+          dataVencimentoOriginal: dataVencimento,
+          observacoes: `Semana ${i + 1}`,
+        })),
+      });
+    }
+  }
+
+  const eventoCount = await prisma.eventoAgenda.count();
+  if (eventoCount === 0) {
+    await prisma.eventoAgenda.createMany({
       data: [
         {
-          veiculoId: veiculos[1].id,
-          clienteId: cliente.id,
-          dataInicio: new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000),
-          dataFimPrevista: new Date(hoje.getTime() + 4 * 24 * 60 * 60 * 1000),
-          kmInicio: 31000,
-          valorDiaria: 120,
-          status: "ATIVA",
+          titulo: "Revisão agendada — Oficina Centro",
+          tipo: "MANUTENCAO_AGENDADA",
+          dataInicio: new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000),
+          veiculoId: veiculos[2].id,
         },
         {
-          veiculoId: veiculos[0].id,
-          clienteId: cliente.id,
-          dataInicio: new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000),
-          dataFimPrevista: new Date(hoje.getTime() - 25 * 24 * 60 * 60 * 1000),
-          dataFimReal: new Date(hoje.getTime() - 25 * 24 * 60 * 60 * 1000),
-          kmInicio: 47000,
-          kmFim: 48500,
-          valorDiaria: 95,
-          valorTotal: 475,
-          status: "FINALIZADA",
+          titulo: "Pagamento fornecedor pneus",
+          tipo: "FINANCEIRO",
+          dataInicio: new Date(hoje.getTime() + 10 * 24 * 60 * 60 * 1000),
+          valor: 1500,
         },
       ],
     });

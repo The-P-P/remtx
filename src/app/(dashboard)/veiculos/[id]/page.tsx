@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Wrench, Pencil } from "lucide-react";
+import { Wrench, Pencil, Calendar } from "lucide-react";
 import {
   getVeiculoById,
   toggleProblemaCronico,
@@ -20,6 +20,7 @@ import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-
 import { PageActions } from "@/components/shared/page-actions";
 import { GRAVIDADE_LABEL, GRAVIDADE_STYLE } from "@/lib/constants/enums";
 import { formatKm } from "@/lib/utils";
+import { LocacaoStatusBadge } from "@/components/locacoes/locacao-status-badge";
 
 export default async function VeiculoDetalhePage({
   params,
@@ -32,6 +33,9 @@ export default async function VeiculoDetalhePage({
 
   const ultimaManutencao = veiculo.manutencoes[0] ?? null;
   const kmRestante = veiculo.kmProximaRevisao - veiculo.kmAtual;
+  const locacaoAtiva = veiculo.locacoes.find((l) =>
+    ["ATIVA", "RESERVADA"].includes(l.status)
+  );
 
   return (
     <div className="space-y-6">
@@ -49,6 +53,26 @@ export default async function VeiculoDetalhePage({
               <Pencil className="size-4" />
               Editar
             </Button>
+            {veiculo.status === "DISPONIVEL" && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                render={<Link href={`/locacoes/nova?veiculoId=${id}`} />}
+              >
+                <Calendar className="size-4" />
+                Nova locação
+              </Button>
+            )}
+            {locacaoAtiva && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                render={<Link href={`/locacoes/${locacaoAtiva.id}`} />}
+              >
+                <Calendar className="size-4" />
+                Ver locação
+              </Button>
+            )}
             <Button
               className="w-full sm:w-auto"
               render={<Link href={`/manutencoes/nova?veiculoId=${id}`} />}
@@ -114,7 +138,7 @@ export default async function VeiculoDetalhePage({
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Problemas crônicos</CardTitle>
@@ -163,6 +187,39 @@ export default async function VeiculoDetalhePage({
         </Card>
 
         <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle>Locações</CardTitle>
+            {veiculo.status === "DISPONIVEL" && (
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/locacoes/nova?veiculoId=${id}`} />}
+              >
+                Nova
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {veiculo.locacoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma locação registrada.
+              </p>
+            ) : (
+              veiculo.locacoes.map((l) => (
+                <Link
+                  key={l.id}
+                  href={`/locacoes/${l.id}`}
+                  className="flex items-center justify-between rounded-lg border p-3 text-sm hover:bg-muted/50"
+                >
+                  <span>{l.cliente.nome}</span>
+                  <LocacaoStatusBadge status={l.status} />
+                </Link>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>
               Manutenções ({veiculo._count.manutencoes})
