@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,24 +54,35 @@ export function AlertasManutencao({ alertas, contagem }: AlertasManutencaoProps)
               return (
                 <li
                   key={v.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 ${estilo.bg} ${estilo.border}`}
+                  className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${estilo.bg} ${estilo.border}`}
                 >
-                  <div>
-                    <p className={`font-medium ${estilo.text}`}>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/veiculos/${v.id}`}
+                      className={`font-medium hover:underline ${estilo.text}`}
+                    >
                       {v.placa} — {v.marca} {v.modelo}
-                    </p>
+                    </Link>
                     <p className="text-xs text-muted-foreground">
                       Atual: {formatKm(v.kmAtual)} · Próxima:{" "}
                       {formatKm(v.kmProximaRevisao)}
                     </p>
                   </div>
-                  <Badge
-                    className={`${estilo.bg} ${estilo.text} border ${estilo.border}`}
-                  >
-                    {v.kmRestante <= 0
-                      ? `Vencido ${Math.abs(v.kmRestante)} km`
-                      : `Faltam ${formatKm(v.kmRestante)}`}
-                  </Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge
+                      className={`${estilo.bg} ${estilo.text} border ${estilo.border}`}
+                    >
+                      {v.kmRestante <= 0
+                        ? `Vencido ${Math.abs(v.kmRestante)} km`
+                        : `Faltam ${formatKm(v.kmRestante)}`}
+                    </Badge>
+                    <Link
+                      href={`/manutencoes/nova?veiculoId=${v.id}`}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Registrar OS
+                    </Link>
+                  </div>
                 </li>
               );
             })}

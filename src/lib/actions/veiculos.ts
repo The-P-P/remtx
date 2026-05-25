@@ -44,12 +44,12 @@ export async function getVeiculoById(id: string) {
     include: {
       manutencoes: {
         orderBy: { dataRealizada: "desc" },
-        take: 10,
         include: {
-          tipoManutencao: { select: { nome: true } },
+          tipoManutencao: { select: { nome: true, intervaloKm: true } },
           pecas: true,
         },
       },
+      _count: { select: { manutencoes: true } },
       problemasCronicos: { orderBy: { dataRegistro: "desc" } },
     },
   });

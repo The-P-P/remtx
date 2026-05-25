@@ -84,11 +84,19 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
               </div>
             </dl>
 
-            {v._count.problemasCronicos > 0 && (
-                <p className="text-xs text-red-600 dark:text-red-300">
-                {v._count.problemasCronicos} problema(s) crônico(s)
-              </p>
-            )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                {v._count.problemasCronicos > 0 && (
+                  <span className="text-red-600 dark:text-red-300">
+                    {v._count.problemasCronicos} problema(s)
+                  </span>
+                )}
+                <Link
+                  href={`/manutencoes?veiculoId=${v.id}`}
+                  className="text-primary hover:underline"
+                >
+                  Manutenções
+                </Link>
+              </div>
           </CardContent>
         </Card>
       ))}

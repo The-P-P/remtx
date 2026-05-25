@@ -52,6 +52,7 @@ export function ManutencaoForm({
   veiculos,
   tipos,
   veiculoIdPreselect,
+  cancelHref,
   initial,
   mode = "create",
 }: {
@@ -59,6 +60,7 @@ export function ManutencaoForm({
   veiculos: VeiculoOption[];
   tipos: TipoOption[];
   veiculoIdPreselect?: string;
+  cancelHref?: string;
   initial?: ManutencaoFormInitial;
   mode?: "create" | "edit";
 }) {
@@ -317,7 +319,23 @@ export function ManutencaoForm({
         ))}
       </div>
 
-      {!isEdit && <input type="hidden" name="pecasExtras" value="[]" />}
+      {!isEdit && (
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <input
+            type="checkbox"
+            name="colocarEmManutencao"
+            className="mt-0.5 size-4 rounded border-input"
+          />
+          <span className="text-sm">
+            <span className="font-medium">Colocar veículo em manutenção</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              O status passa para &quot;Em manutenção&quot; após salvar. Se
+              desmarcado e o veículo já estava em manutenção, volta para
+              disponível.
+            </span>
+          </span>
+        </label>
+      )}
 
       <FormActionsRow>
         <Button type="submit" disabled={pending} className="w-full sm:w-auto">
@@ -330,7 +348,16 @@ export function ManutencaoForm({
         <Button
           variant="outline"
           className="w-full sm:w-auto"
-          render={<Link href="/manutencoes" />}
+          render={
+            <Link
+              href={
+                cancelHref ??
+                (veiculoIdPreselect
+                  ? `/veiculos/${veiculoIdPreselect}`
+                  : "/manutencoes")
+              }
+            />
+          }
         >
           Cancelar
         </Button>

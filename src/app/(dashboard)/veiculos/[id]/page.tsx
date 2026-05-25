@@ -30,6 +30,9 @@ export default async function VeiculoDetalhePage({
   const veiculo = await getVeiculoById(id);
   if (!veiculo) notFound();
 
+  const ultimaManutencao = veiculo.manutencoes[0] ?? null;
+  const kmRestante = veiculo.kmProximaRevisao - veiculo.kmAtual;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -80,6 +83,14 @@ export default async function VeiculoDetalhePage({
             <p className="mt-2 text-xl font-bold">
               {formatKm(veiculo.kmProximaRevisao)}
             </p>
+            {ultimaManutencao && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ultimaManutencao.tipoManutencao.nome}
+                {kmRestante >= 0
+                  ? ` · faltam ${formatKm(kmRestante)}`
+                  : ` · ${formatKm(Math.abs(kmRestante))} km em atraso`}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -152,11 +163,23 @@ export default async function VeiculoDetalhePage({
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Últimas manutenções</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle>
+              Manutenções ({veiculo._count.manutencoes})
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href={`/manutencoes?veiculoId=${id}`} />}
+            >
+              Ver histórico
+            </Button>
           </CardHeader>
           <CardContent>
-            <VeiculoManutencoesList manutencoes={veiculo.manutencoes} />
+            <VeiculoManutencoesList
+              manutencoes={veiculo.manutencoes}
+              veiculoId={id}
+            />
           </CardContent>
         </Card>
       </div>

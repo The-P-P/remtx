@@ -64,6 +64,10 @@ export async function submitNovaManutencao(
 ): Promise<FormState> {
   const result = await createManutencao(formData);
   if (result.success) {
+    const veiculoId = formData.get("veiculoId");
+    if (typeof veiculoId === "string" && veiculoId) {
+      redirect(`/veiculos/${veiculoId}`);
+    }
     redirect("/manutencoes");
   }
   return {

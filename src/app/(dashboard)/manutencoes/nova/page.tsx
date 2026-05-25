@@ -23,7 +23,7 @@ export default async function NovaManutencaoPage({
       <PageHeader
         title="Registrar manutenção"
         description="Atualiza km do veículo, gera alerta e inclui peças do tipo"
-        backHref="/manutencoes"
+        backHref={veiculoId ? `/veiculos/${veiculoId}` : "/manutencoes"}
       />
       <Card>
         <CardHeader>
@@ -35,6 +35,7 @@ export default async function NovaManutencaoPage({
             veiculos={veiculos}
             tipos={tipos}
             veiculoIdPreselect={veiculoId}
+            cancelHref={veiculoId ? `/veiculos/${veiculoId}` : "/manutencoes"}
           />
         </CardContent>
       </Card>

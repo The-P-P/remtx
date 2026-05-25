@@ -22,14 +22,24 @@ async function assertManutencaoAccess() {
   return user;
 }
 
-export async function getManutencoes() {
+export async function getManutencoes(veiculoId?: string) {
   return prisma.manutencao.findMany({
+    where: veiculoId ? { veiculoId } : undefined,
     orderBy: { dataRealizada: "desc" },
     include: {
-      veiculo: { select: { placa: true, marca: true, modelo: true } },
-      tipoManutencao: { select: { nome: true } },
+      veiculo: {
+        select: { id: true, placa: true, marca: true, modelo: true },
+      },
+      tipoManutencao: { select: { nome: true, intervaloKm: true } },
       pecas: true,
     },
+  });
+}
+
+export async function getVeiculoParaFiltroManutencoes(id: string) {
+  return prisma.veiculo.findUnique({
+    where: { id },
+    select: { id: true, placa: true, marca: true, modelo: true },
   });
 }
 
@@ -56,6 +66,62 @@ function parsePecasForm(formData: FormData) {
   } catch {
     return [];
   }
+}
+
+async function validarKmManutencao(
+  veiculoId: string,
+  kmRealizada: number,
+  manutencaoIdExcluir?: string,
+  kmAnteriorRegistro?: number
+) {
+  const veiculo = await prisma.veiculo.findUnique({
+    where: { id: veiculoId },
+    select: { kmAtual: true, placa: true, status: true },
+  });
+  if (!veiculo) {
+    return { ok: false as const, error: "Veículo não encontrado" };
+  }
+  if (veiculo.status === "ALUGADO") {
+    return {
+      ok: false as const,
+      error: `Veículo ${veiculo.placa} está alugado. Registre a devolução antes da manutenção.`,
+    };
+  }
+  if (kmRealizada < veiculo.kmAtual) {
+    const ultima = await prisma.manutencao.findFirst({
+      where: { veiculoId },
+      orderBy: [{ dataRealizada: "desc" }, { kmRealizada: "desc" }],
+      select: { id: true },
+    });
+    const editandoUltima =
+      manutencaoIdExcluir && ultima?.id === manutencaoIdExcluir;
+    const apenasCorrigindoRegistro =
+      kmAnteriorRegistro !== undefined && kmRealizada >= kmAnteriorRegistro;
+
+    if (!editandoUltima && !apenasCorrigindoRegistro) {
+      return {
+        ok: false as const,
+        error: `Km informado (${kmRealizada.toLocaleString("pt-BR")}) não pode ser menor que o km atual do veículo (${veiculo.kmAtual.toLocaleString("pt-BR")} km).`,
+      };
+    }
+  }
+
+  const duplicada = await prisma.manutencao.findFirst({
+    where: {
+      veiculoId,
+      kmRealizada,
+      ...(manutencaoIdExcluir ? { id: { not: manutencaoIdExcluir } } : {}),
+    },
+    select: { id: true },
+  });
+  if (duplicada) {
+    return {
+      ok: false as const,
+      error: "Já existe manutenção registrada com este km para este veículo.",
+    };
+  }
+
+  return { ok: true as const, veiculo };
 }
 
 async function syncVeiculoKmFromUltimaManutencao(
@@ -123,15 +189,8 @@ export async function createManutencao(
   try {
     await assertManutencaoAccess();
 
-    const pecasExtrasRaw = formData.get("pecasExtras");
-    let pecasExtras: { nome: string; quantidade: number; valorUnitario?: number }[] = [];
-    if (pecasExtrasRaw && typeof pecasExtrasRaw === "string") {
-      try {
-        pecasExtras = JSON.parse(pecasExtrasRaw);
-      } catch {
-        pecasExtras = [];
-      }
-    }
+    const pecasForm = parsePecasForm(formData);
+    const colocarEmManutencao = formData.get("colocarEmManutencao") === "on";
 
     const parsed = manutencaoSchema.safeParse({
       veiculoId: formData.get("veiculoId"),
@@ -140,11 +199,19 @@ export async function createManutencao(
       kmRealizada: formData.get("kmRealizada"),
       custo: formData.get("custo") || undefined,
       observacoes: formData.get("observacoes") || undefined,
-      pecasExtras,
+      pecasExtras: pecasForm,
     });
 
     if (!parsed.success) {
       return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+    }
+
+    const kmCheck = await validarKmManutencao(
+      parsed.data.veiculoId,
+      parsed.data.kmRealizada
+    );
+    if (!kmCheck.ok) {
+      return { success: false, error: kmCheck.error };
     }
 
     const tipo = await prisma.tipoManutencao.findUnique({
@@ -158,17 +225,17 @@ export async function createManutencao(
     const kmProxima = parsed.data.kmRealizada + tipo.intervaloKm;
     const alerta = calcularAlertaKm(parsed.data.kmRealizada, kmProxima);
 
-    const pecasCreate = [
-      ...tipo.pecasPadrao.map((p) => ({
-        nome: p.nome,
-        quantidade: p.quantidade,
-      })),
-      ...parsed.data.pecasExtras.map((p) => ({
-        nome: p.nome,
-        quantidade: p.quantidade,
-        valorUnitario: p.valorUnitario,
-      })),
-    ];
+    const pecasCreate =
+      pecasForm.length > 0
+        ? pecasForm.map((p) => ({
+            nome: p.nome,
+            quantidade: p.quantidade,
+            valorUnitario: p.valorUnitario,
+          }))
+        : tipo.pecasPadrao.map((p) => ({
+            nome: p.nome,
+            quantidade: p.quantidade,
+          }));
 
     const manutencao = await prisma.$transaction(async (tx) => {
       const m = await tx.manutencao.create({
@@ -187,15 +254,22 @@ export async function createManutencao(
 
       const veiculo = await tx.veiculo.findUnique({
         where: { id: parsed.data.veiculoId },
+        select: { status: true },
       });
+
+      let novoStatus = veiculo?.status;
+      if (colocarEmManutencao) {
+        novoStatus = "EM_MANUTENCAO";
+      } else if (veiculo?.status === "EM_MANUTENCAO") {
+        novoStatus = "DISPONIVEL";
+      }
+
       await tx.veiculo.update({
         where: { id: parsed.data.veiculoId },
         data: {
           kmAtual: parsed.data.kmRealizada,
           kmProximaRevisao: kmProxima,
-          ...(veiculo?.status === "EM_MANUTENCAO"
-            ? { status: "DISPONIVEL" as const }
-            : {}),
+          ...(novoStatus ? { status: novoStatus } : {}),
         },
       });
 
@@ -244,6 +318,16 @@ export async function updateManutencao(
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
       };
+    }
+
+    const kmCheck = await validarKmManutencao(
+      parsed.data.veiculoId,
+      parsed.data.kmRealizada,
+      id,
+      existente.kmRealizada
+    );
+    if (!kmCheck.ok) {
+      return { success: false, error: kmCheck.error };
     }
 
     const tipo = await prisma.tipoManutencao.findUnique({
