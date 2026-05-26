@@ -2,14 +2,78 @@
 
 import { revalidatePath } from "next/cache";
 import { startOfDay, startOfYear, endOfYear } from "date-fns";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { ensureCategoriasFinanceirasPadrao } from "@/lib/financeiro-categorias";
 import { parsePeriodoFinanceiro } from "@/lib/financeiro-periodo";
+import { labelOrigemTransacao } from "@/lib/financeiro-export";
 import {
   categoriaSchema,
   transacaoSchema,
 } from "@/lib/validations/financeiro";
+
+export type FiltrosTransacao = {
+  ano?: string;
+  mes?: string;
+  de?: string;
+  ate?: string;
+  tipo?: string;
+  categoriaId?: string;
+  q?: string;
+};
+
+const transacaoInclude = {
+  categoria: { select: { id: true, nome: true, tipo: true } },
+  parcela: {
+    select: {
+      id: true,
+      locacaoId: true,
+      locacao: {
+        select: {
+          id: true,
+          veiculo: { select: { placa: true } },
+        },
+      },
+    },
+  },
+  manutencao: {
+    select: {
+      id: true,
+      veiculo: { select: { placa: true } },
+      tipoManutencao: { select: { nome: true } },
+    },
+  },
+  locacao: {
+    select: {
+      id: true,
+      veiculo: { select: { placa: true } },
+      cliente: { select: { nome: true } },
+    },
+  },
+};
+
+export type TransacaoListItem = Prisma.TransacaoFinanceiraGetPayload<{
+  include: typeof transacaoInclude;
+}>;
+
+function buildFiltroTransacoes(params: FiltrosTransacao) {
+  const periodo = parsePeriodoFinanceiro(params);
+  const tipo =
+    params.tipo === "ENTRADA" || params.tipo === "SAIDA"
+      ? params.tipo
+      : undefined;
+  const q = params.q?.trim();
+
+  const where: Prisma.TransacaoFinanceiraWhereInput = {
+    data: { gte: periodo.inicio, lte: periodo.fim },
+    ...(tipo ? { tipo } : {}),
+    ...(params.categoriaId ? { categoriaId: params.categoriaId } : {}),
+    ...(q ? { descricao: { contains: q, mode: "insensitive" } } : {}),
+  };
+
+  return { periodo, where };
+}
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -49,42 +113,72 @@ export async function getCategoriaById(id: string) {
 export async function getTransacaoById(id: string) {
   return prisma.transacaoFinanceira.findUnique({
     where: { id },
-    include: { categoria: true },
+    include: {
+      categoria: true,
+      parcela: transacaoInclude.parcela,
+      manutencao: transacaoInclude.manutencao,
+      locacao: transacaoInclude.locacao,
+    },
   });
 }
 
-export async function getTransacoes(params: {
-  ano?: string;
-  mes?: string;
-  tipo?: string;
-  categoriaId?: string;
-}) {
+export async function getTransacoes(
+  params: FiltrosTransacao
+): Promise<TransacaoListItem[]> {
   await ensureCategoriasFinanceirasPadrao();
-  const { inicio, fim } = parsePeriodoFinanceiro(params);
-
-  const tipo =
-    params.tipo === "ENTRADA" || params.tipo === "SAIDA"
-      ? params.tipo
-      : undefined;
+  const { where } = buildFiltroTransacoes(params);
 
   return prisma.transacaoFinanceira.findMany({
-    where: {
-      data: { gte: inicio, lte: fim },
-      ...(tipo ? { tipo } : {}),
-      ...(params.categoriaId ? { categoriaId: params.categoriaId } : {}),
-    },
+    where,
     orderBy: [{ data: "desc" }, { createdAt: "desc" }],
-    include: { categoria: { select: { id: true, nome: true, tipo: true } } },
-  });
+    include: transacaoInclude,
+  }) as Promise<TransacaoListItem[]>;
 }
 
-export async function getResumoFinanceiro(params: {
-  ano?: string;
-  mes?: string;
-}) {
-  const { inicio, fim, ano, mes } = parsePeriodoFinanceiro(params);
+export type ResumoCategoriaItem = {
+  categoriaId: string;
+  nome: string;
+  tipo: "ENTRADA" | "SAIDA";
+  total: number;
+};
+
+export async function getResumoPorCategoria(params: FiltrosTransacao) {
+  const { where } = buildFiltroTransacoes(params);
   const transacoes = await prisma.transacaoFinanceira.findMany({
-    where: { data: { gte: inicio, lte: fim } },
+    where,
+    select: {
+      categoriaId: true,
+      tipo: true,
+      valor: true,
+      categoria: { select: { nome: true } },
+    },
+  });
+
+  const map = new Map<string, ResumoCategoriaItem>();
+  for (const t of transacoes) {
+    const key = t.categoriaId;
+    const atual = map.get(key);
+    const v = Number(t.valor);
+    if (atual) {
+      atual.total = Math.round((atual.total + v) * 100) / 100;
+    } else {
+      map.set(key, {
+        categoriaId: t.categoriaId,
+        nome: t.categoria.nome,
+        tipo: t.tipo,
+        total: v,
+      });
+    }
+  }
+
+  return [...map.values()].sort((a, b) => b.total - a.total);
+}
+
+export async function getResumoFinanceiro(params: FiltrosTransacao) {
+  const { periodo, where } = buildFiltroTransacoes(params);
+  const { inicio, fim, ano, mes, modo } = periodo;
+  const transacoes = await prisma.transacaoFinanceira.findMany({
+    where,
     select: { tipo: true, valor: true },
   });
 
@@ -101,11 +195,66 @@ export async function getResumoFinanceiro(params: {
     mes,
     inicio,
     fim,
+    modo,
     entradas: Math.round(entradas * 100) / 100,
     saidas: Math.round(saidas * 100) / 100,
     saldo: Math.round((entradas - saidas) * 100) / 100,
     quantidade: transacoes.length,
   };
+}
+
+export async function duplicateTransacao(
+  id: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await assertFinanceiroAccess();
+    const original = await prisma.transacaoFinanceira.findUnique({
+      where: { id },
+    });
+    if (!original) {
+      return { success: false, error: "Lançamento não encontrado" };
+    }
+    if (original.parcelaId || original.manutencaoId) {
+      return {
+        success: false,
+        error:
+          "Lançamentos vinculados a parcela ou manutenção não podem ser duplicados. Crie um lançamento manual.",
+      };
+    }
+
+    const copia = await prisma.transacaoFinanceira.create({
+      data: {
+        categoriaId: original.categoriaId,
+        tipo: original.tipo,
+        valor: original.valor,
+        descricao: `${original.descricao} (cópia)`,
+        data: new Date(),
+        formaPagamento: original.formaPagamento,
+        locacaoId: original.locacaoId,
+      },
+    });
+
+    revalidateFinanceiro();
+    return { success: true, data: { id: copia.id } };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Erro ao duplicar",
+    };
+  }
+}
+
+export async function getTransacoesParaExport(params: FiltrosTransacao) {
+  const transacoes = await getTransacoes(params);
+  return transacoes.map((t) => ({
+    data: t.data,
+    tipo: t.tipo,
+    categoria: t.categoria.nome,
+    descricao: t.descricao,
+    valor: Number(t.valor),
+    formaPagamento: t.formaPagamento,
+    origem: labelOrigemTransacao(t),
+  }));
 }
 
 export type FluxoMensalItem = {
@@ -175,6 +324,7 @@ export async function createTransacao(
       valor: formData.get("valor"),
       descricao: formData.get("descricao"),
       data: formData.get("data"),
+      formaPagamento: formData.get("formaPagamento") || undefined,
     });
 
     if (!parsed.success) {
@@ -204,6 +354,7 @@ export async function createTransacao(
         valor: parsed.data.valor,
         descricao: parsed.data.descricao.trim(),
         data: startOfDay(parsed.data.data),
+        formaPagamento: parsed.data.formaPagamento,
       },
     });
 
@@ -229,6 +380,7 @@ export async function updateTransacao(
       valor: formData.get("valor"),
       descricao: formData.get("descricao"),
       data: formData.get("data"),
+      formaPagamento: formData.get("formaPagamento") || undefined,
     });
 
     if (!parsed.success) {
@@ -251,6 +403,13 @@ export async function updateTransacao(
       };
     }
 
+    const existente = await prisma.transacaoFinanceira.findUnique({
+      where: { id },
+    });
+    if (!existente) {
+      return { success: false, error: "Lançamento não encontrado" };
+    }
+
     await prisma.transacaoFinanceira.update({
       where: { id },
       data: {
@@ -259,6 +418,7 @@ export async function updateTransacao(
         valor: parsed.data.valor,
         descricao: parsed.data.descricao.trim(),
         data: startOfDay(parsed.data.data),
+        formaPagamento: parsed.data.formaPagamento,
       },
     });
 

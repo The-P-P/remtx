@@ -10,17 +10,18 @@ import {
 } from "@/lib/constants/enums";
 import { formatCurrency } from "@/lib/utils";
 import { TransacaoDeleteButton } from "@/components/financeiro/transacao-delete-button";
-import type { getTransacoes } from "@/lib/actions/financeiro";
-import type { TipoTransacao } from "@/types/prisma";
-
-type TransacaoItem = Awaited<ReturnType<typeof getTransacoes>>[number];
+import { TransacaoDuplicarButton } from "@/components/financeiro/transacao-duplicar-button";
+import { TransacaoOrigemLink } from "@/components/financeiro/transacao-origem-link";
+import { FORMA_PAGAMENTO_LABEL } from "@/lib/constants/enums";
+import type { TransacaoListItem } from "@/lib/actions/financeiro";
+import type { FormaPagamento, TipoTransacao } from "@/types/prisma";
 
 export function TransacoesList({
   transacoes,
   ano,
   mes,
 }: {
-  transacoes: TransacaoItem[];
+  transacoes: TransacaoListItem[];
   ano: number;
   mes: number;
 }) {
@@ -49,7 +50,15 @@ export function TransacoesList({
               </span>
             </div>
             <p className="font-medium">{t.descricao}</p>
-            <p className="text-sm text-muted-foreground">{t.categoria.nome}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-muted-foreground">{t.categoria.nome}</p>
+              <TransacaoOrigemLink t={t} />
+              {t.formaPagamento && (
+                <span className="text-xs text-muted-foreground">
+                  {FORMA_PAGAMENTO_LABEL[t.formaPagamento as FormaPagamento]}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <p
@@ -62,6 +71,9 @@ export function TransacoesList({
               {t.tipo === "ENTRADA" ? "+" : "−"}
               {formatCurrency(Number(t.valor))}
             </p>
+            {!t.parcelaId && !t.manutencaoId && (
+              <TransacaoDuplicarButton id={t.id} ano={ano} mes={mes} />
+            )}
             <Button
               variant="ghost"
               size="icon-sm"

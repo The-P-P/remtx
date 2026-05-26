@@ -63,9 +63,9 @@ async function main() {
     console.error(`\n⚠ Categoria obrigatória faltando: ${CATEGORIA_LOCACAO_NOME}`);
     process.exit(1);
   }
-  if (categorias.length < CATEGORIAS_PADRAO.length) {
+  if (categorias < CATEGORIAS_PADRAO.length) {
     console.log(
-      `\nℹ Rode o app ou seed para criar ${CATEGORIAS_PADRAO.length - categorias.length} categoria(s) padrão faltante(s).`
+      `\nℹ Rode o app ou seed para criar ${CATEGORIAS_PADRAO.length - categorias} categoria(s) padrão faltante(s).`
     );
   }
 

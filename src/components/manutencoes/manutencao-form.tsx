@@ -319,6 +319,38 @@ export function ManutencaoForm({
         ))}
       </div>
 
+      <div className="space-y-3 rounded-lg border p-4">
+        <p className="text-sm font-medium">Financeiro</p>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            name="registrarFinanceiro"
+            defaultChecked={false}
+            className="mt-0.5 size-4 rounded border-input"
+          />
+          <span className="text-sm">
+            Registrar saída no financeiro (usa o custo informado)
+          </span>
+        </label>
+        <div className="space-y-2">
+          <Label htmlFor="formaPagamento">Forma de pagamento</Label>
+          <select
+            id="formaPagamento"
+            name="formaPagamento"
+            className="flex h-8 w-full max-w-xs rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
+          >
+            <option value="">Não informado</option>
+            <option value="PIX">PIX</option>
+            <option value="DINHEIRO">Dinheiro</option>
+            <option value="CARTAO_DEBITO">Cartão débito</option>
+            <option value="CARTAO_CREDITO">Cartão crédito</option>
+            <option value="TRANSFERENCIA">Transferência</option>
+            <option value="BOLETO">Boleto</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+      </div>
+
       {!isEdit && (
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
           <input

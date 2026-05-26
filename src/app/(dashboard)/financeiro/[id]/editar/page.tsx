@@ -50,6 +50,7 @@ export default async function EditarTransacaoPage({
               valor: Number(transacao.valor),
               descricao: transacao.descricao,
               data: transacao.data,
+              formaPagamento: transacao.formaPagamento,
             }}
             submitLabel="Salvar"
             cancelHref={financeiroQuery(ano, mes)}

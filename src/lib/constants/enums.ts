@@ -3,6 +3,7 @@ import type {
   StatusLocacao,
   TipoEventoAgenda,
   TipoTransacao,
+  FormaPagamento,
   GravidadeProblema,
   AlertaManutencao,
 } from "@/types/prisma";
@@ -18,6 +19,20 @@ export const TIPO_TRANSACAO_STYLE: Record<TipoTransacao, string> = {
   SAIDA:
     "bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-200",
 };
+
+export const FORMA_PAGAMENTO_LABEL: Record<FormaPagamento, string> = {
+  PIX: "PIX",
+  DINHEIRO: "Dinheiro",
+  CARTAO_DEBITO: "Cartão débito",
+  CARTAO_CREDITO: "Cartão crédito",
+  TRANSFERENCIA: "Transferência",
+  BOLETO: "Boleto",
+  OUTRO: "Outro",
+};
+
+export const FORMAS_PAGAMENTO_OPTIONS = (
+  Object.entries(FORMA_PAGAMENTO_LABEL) as [FormaPagamento, string][]
+).map(([value, label]) => ({ value, label }));
 
 export const STATUS_VEICULO_LABEL: Record<StatusVeiculo, string> = {
   DISPONIVEL: "Disponível",

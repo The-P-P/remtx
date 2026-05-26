@@ -33,6 +33,7 @@ import {
   createTransacao,
   updateTransacao,
   deleteTransacao,
+  duplicateTransacao,
   createCategoria,
   updateCategoria,
   deleteCategoria,
@@ -326,6 +327,18 @@ export async function deleteTransacaoAction(
     redirect(financeiroQuery(ano, mes));
   }
   throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function duplicateTransacaoAction(
+  id: string,
+  ano: number,
+  mes: number
+) {
+  const result = await duplicateTransacao(id);
+  if (result.success) {
+    redirect(financeiroQuery(ano, mes));
+  }
+  throw new Error(!result.success ? result.error : "Erro ao duplicar");
 }
 
 export async function submitNovaCategoria(

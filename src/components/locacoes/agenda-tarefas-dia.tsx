@@ -426,6 +426,24 @@ export function AgendaTarefasDia({
                 />
                 Registrar entrada no financeiro
               </label>
+              <div className="space-y-2">
+                <Label htmlFor="formaPagamentoConfirmar">Forma de pagamento</Label>
+                <select
+                  id="formaPagamentoConfirmar"
+                  name="formaPagamento"
+                  defaultValue="PIX"
+                  className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
+                >
+                  <option value="">Não informado</option>
+                  <option value="PIX">PIX</option>
+                  <option value="DINHEIRO">Dinheiro</option>
+                  <option value="CARTAO_DEBITO">Cartão débito</option>
+                  <option value="CARTAO_CREDITO">Cartão crédito</option>
+                  <option value="TRANSFERENCIA">Transferência</option>
+                  <option value="BOLETO">Boleto</option>
+                  <option value="OUTRO">Outro</option>
+                </select>
+              </div>
               <p className="text-xs text-muted-foreground">
                 A próxima parcela semanal já está na agenda conforme o contrato.
               </p>

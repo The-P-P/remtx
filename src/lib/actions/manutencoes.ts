@@ -9,6 +9,9 @@ import {
   tipoManutencaoSchema,
 } from "@/lib/validations/manutencao";
 import { calcularAlertaKm } from "@/lib/manutencao-alerts";
+import { getCategoriaManutencaoFrota } from "@/lib/financeiro-categorias";
+import { sincronizarLancamentoManutencao } from "@/lib/financeiro-lancamento";
+import type { FormaPagamento } from "@/types/prisma";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -191,6 +194,14 @@ export async function createManutencao(
 
     const pecasForm = parsePecasForm(formData);
     const colocarEmManutencao = formData.get("colocarEmManutencao") === "on";
+    const registrarFinanceiro =
+      formData.get("registrarFinanceiro") === "on" ||
+      formData.get("registrarFinanceiro") === "true";
+    const formaRaw = formData.get("formaPagamento");
+    const formaPagamento =
+      typeof formaRaw === "string" && formaRaw.length > 0
+        ? (formaRaw as FormaPagamento)
+        : null;
 
     const parsed = manutencaoSchema.safeParse({
       veiculoId: formData.get("veiculoId"),
@@ -237,7 +248,14 @@ export async function createManutencao(
             quantidade: p.quantidade,
           }));
 
+    const custoValor = parsed.data.custo ? Number(parsed.data.custo) : 0;
+
     const manutencao = await prisma.$transaction(async (tx) => {
+      const veiculo = await tx.veiculo.findUnique({
+        where: { id: parsed.data.veiculoId },
+        select: { status: true, placa: true },
+      });
+
       const m = await tx.manutencao.create({
         data: {
           veiculoId: parsed.data.veiculoId,
@@ -250,11 +268,6 @@ export async function createManutencao(
           observacoes: parsed.data.observacoes,
           pecas: { create: pecasCreate },
         },
-      });
-
-      const veiculo = await tx.veiculo.findUnique({
-        where: { id: parsed.data.veiculoId },
-        select: { status: true },
       });
 
       let novoStatus = veiculo?.status;
@@ -273,10 +286,23 @@ export async function createManutencao(
         },
       });
 
+      if (registrarFinanceiro && custoValor > 0) {
+        const categoria = await getCategoriaManutencaoFrota(tx);
+        await sincronizarLancamentoManutencao(tx, m.id, {
+          categoriaId: categoria.id,
+          tipo: "SAIDA",
+          valor: custoValor,
+          descricao: `Manutenção ${veiculo?.placa ?? ""} — ${tipo.nome}`.trim(),
+          data: parsed.data.dataRealizada,
+          formaPagamento,
+        });
+      }
+
       return m;
     });
 
     revalidatePath("/manutencoes");
+    revalidatePath("/financeiro");
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${parsed.data.veiculoId}`);
     revalidatePath("/");
@@ -302,6 +328,15 @@ export async function updateManutencao(
     }
 
     const pecas = parsePecasForm(formData);
+    const registrarFinanceiro =
+      formData.get("registrarFinanceiro") === "on" ||
+      formData.get("registrarFinanceiro") === "true";
+    const formaRaw = formData.get("formaPagamento");
+    const formaPagamento =
+      typeof formaRaw === "string" && formaRaw.length > 0
+        ? (formaRaw as FormaPagamento)
+        : null;
+
     const parsed = manutencaoUpdateSchema.safeParse({
       veiculoId: formData.get("veiculoId"),
       tipoManutencaoId: formData.get("tipoManutencaoId"),
@@ -342,8 +377,14 @@ export async function updateManutencao(
       parsed.data.kmRealizada + tipo.intervaloKm;
     const alerta = calcularAlertaKm(parsed.data.kmRealizada, kmProxima);
     const veiculoAnteriorId = existente.veiculoId;
+    const custoValor = parsed.data.custo ? Number(parsed.data.custo) : 0;
 
     await prisma.$transaction(async (tx) => {
+      const veiculo = await tx.veiculo.findUnique({
+        where: { id: parsed.data.veiculoId },
+        select: { placa: true },
+      });
+
       await tx.pecaManutencao.deleteMany({ where: { manutencaoId: id } });
 
       await tx.manutencao.update({
@@ -371,9 +412,22 @@ export async function updateManutencao(
       if (veiculoAnteriorId !== parsed.data.veiculoId) {
         await syncVeiculoKmFromUltimaManutencao(veiculoAnteriorId, tx);
       }
+
+      if (registrarFinanceiro && custoValor > 0) {
+        const categoria = await getCategoriaManutencaoFrota(tx);
+        await sincronizarLancamentoManutencao(tx, id, {
+          categoriaId: categoria.id,
+          tipo: "SAIDA",
+          valor: custoValor,
+          descricao: `Manutenção ${veiculo?.placa ?? ""} — ${tipo.nome}`.trim(),
+          data: parsed.data.dataRealizada,
+          formaPagamento,
+        });
+      }
     });
 
     revalidatePath("/manutencoes");
+    revalidatePath("/financeiro");
     revalidatePath(`/manutencoes/${id}/editar`);
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${parsed.data.veiculoId}`);

@@ -9,10 +9,12 @@ export function FinanceiroSection({
   children,
   showNovaTransacao = true,
   novaTransacaoHref = "/financeiro/nova",
+  exportButton,
 }: {
   children: React.ReactNode;
   showNovaTransacao?: boolean;
   novaTransacaoHref?: string;
+  exportButton?: React.ReactNode;
 }) {
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -20,15 +22,18 @@ export function FinanceiroSection({
         title="Financeiro"
         description="Entradas, saídas e fluxo de caixa da locadora"
         action={
-          showNovaTransacao ? (
+          showNovaTransacao || exportButton ? (
             <PageActions>
-              <Button
-                className="w-full sm:w-auto"
-                render={<Link href={novaTransacaoHref} />}
-              >
-                <Plus className="size-4" />
-                Novo lançamento
-              </Button>
+              {exportButton}
+              {showNovaTransacao && (
+                <Button
+                  className="w-full sm:w-auto"
+                  render={<Link href={novaTransacaoHref} />}
+                >
+                  <Plus className="size-4" />
+                  Novo lançamento
+                </Button>
+              )}
             </PageActions>
           ) : undefined
         }

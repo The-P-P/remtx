@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
 import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
+import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
+import type { FormaPagamento } from "@/types/prisma";
 import {
   calcularJurosParcela,
   valorTotalParcela,
@@ -272,6 +274,11 @@ export async function confirmarPagamentoParcela(
     const registrarFinanceiro =
       formData.get("registrarFinanceiro") === "on" ||
       formData.get("registrarFinanceiro") === "true";
+    const formaRaw = formData.get("formaPagamento");
+    const formaPagamento =
+      typeof formaRaw === "string" && formaRaw.length > 0
+        ? (formaRaw as FormaPagamento)
+        : null;
 
     const valorPago = Number(parcela.valor);
 
@@ -291,14 +298,15 @@ export async function confirmarPagamentoParcela(
           Number(parcela.valorJuros) > 0
             ? ` (incl. juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
             : "";
-        await tx.transacaoFinanceira.create({
-          data: {
-            categoriaId: categoria.id,
-            tipo: "ENTRADA",
-            valor: valorPago,
-            descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome}${descricaoJuros}`,
-            data: new Date(),
-          },
+        await criarLancamentoFinanceiro(tx, {
+          categoriaId: categoria.id,
+          tipo: "ENTRADA",
+          valor: valorPago,
+          descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome}${descricaoJuros}`,
+          data: new Date(),
+          formaPagamento,
+          parcelaId,
+          locacaoId: parcela.locacaoId,
         });
       }
     });
@@ -373,14 +381,14 @@ export async function ajustarPagamentoParcela(
 
       if (registrarFinanceiro) {
         const categoria = await getCategoriaLocacaoVeiculos(tx);
-        await tx.transacaoFinanceira.create({
-          data: {
-            categoriaId: categoria.id,
-            tipo: "ENTRADA",
-            valor: valorBase,
-            descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome} (ajuste)`,
-            data: dataPagamento,
-          },
+        await criarLancamentoFinanceiro(tx, {
+          categoriaId: categoria.id,
+          tipo: "ENTRADA",
+          valor: valorBase,
+          descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome} (ajuste)`,
+          data: dataPagamento,
+          parcelaId,
+          locacaoId: parcela.locacaoId,
         });
       }
     });

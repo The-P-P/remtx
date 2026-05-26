@@ -9,6 +9,7 @@ import {
   sincronizarParcelasSemanais,
 } from "@/lib/parcelas-semanais";
 import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
+import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import {
   locacaoCreateSchema,
@@ -415,14 +416,13 @@ export async function finalizarLocacao(
 
       if (parsed.data.registrarFinanceiro) {
         const categoria = await getCategoriaLocacaoVeiculos(tx);
-        await tx.transacaoFinanceira.create({
-          data: {
-            categoriaId: categoria.id,
-            tipo: "ENTRADA",
-            valor: valorTotal,
-            descricao: `Locação ${locacao.veiculo.placa} — ${locacao.cliente.nome}`,
-            data: parsed.data.dataFimReal,
-          },
+        await criarLancamentoFinanceiro(tx, {
+          categoriaId: categoria.id,
+          tipo: "ENTRADA",
+          valor: valorTotal,
+          descricao: `Locação ${locacao.veiculo.placa} — ${locacao.cliente.nome} (encerramento)`,
+          data: parsed.data.dataFimReal,
+          locacaoId: id,
         });
       }
     });

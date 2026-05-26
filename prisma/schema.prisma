@@ -51,6 +51,16 @@ enum TipoTransacao {
   SAIDA
 }
 
+enum FormaPagamento {
+  PIX
+  DINHEIRO
+  CARTAO_DEBITO
+  CARTAO_CREDITO
+  TRANSFERENCIA
+  BOLETO
+  OUTRO
+}
+
 enum AlertaManutencao {
   VERDE
   AMARELO
@@ -144,6 +154,7 @@ model Locacao {
   cliente   Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   parcelas  ParcelaLocacao[]
   eventosAgenda EventoAgenda[]
+  transacoesFinanceiras TransacaoFinanceira[]
 
   @@index([status])
   @@index([veiculoId])
@@ -168,7 +179,8 @@ model ParcelaLocacao {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  locacao Locacao @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  locacao            Locacao              @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  transacaoFinanceira TransacaoFinanceira?
 
   @@index([locacaoId])
   @@index([dataVencimento])
@@ -255,7 +267,8 @@ model Manutencao {
 
   veiculo        Veiculo        @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
   tipoManutencao TipoManutencao @relation(fields: [tipoManutencaoId], references: [id], onDelete: Restrict)
-  pecas          PecaManutencao[]
+  pecas               PecaManutencao[]
+  transacaoFinanceira TransacaoFinanceira?
 
   @@index([veiculoId])
   @@index([tipoManutencaoId])
@@ -306,18 +319,26 @@ model CategoriaFinanceira {
 }
 
 model TransacaoFinanceira {
-  id          String        @id @default(cuid())
-  categoriaId String
-  tipo        TipoTransacao
-  valor       Decimal       @db.Decimal(10, 2)
-  descricao   String
-  data        DateTime
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String          @id @default(cuid())
+  categoriaId    String
+  tipo           TipoTransacao
+  valor          Decimal         @db.Decimal(10, 2)
+  descricao      String
+  data           DateTime
+  formaPagamento FormaPagamento?
+  parcelaId      String?         @unique
+  manutencaoId   String?         @unique
+  locacaoId      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  categoria CategoriaFinanceira @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  categoria  CategoriaFinanceira @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  parcela    ParcelaLocacao?     @relation(fields: [parcelaId], references: [id], onDelete: SetNull)
+  manutencao Manutencao?         @relation(fields: [manutencaoId], references: [id], onDelete: SetNull)
+  locacao    Locacao?            @relation(fields: [locacaoId], references: [id], onDelete: SetNull)
 
   @@index([data])
   @@index([tipo])
   @@index([categoriaId])
+  @@index([locacaoId])
 }

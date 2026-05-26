@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
-import { TIPO_TRANSACAO_LABEL } from "@/lib/constants/enums";
+import {
+  FORMAS_PAGAMENTO_OPTIONS,
+  TIPO_TRANSACAO_LABEL,
+} from "@/lib/constants/enums";
+import type { FormaPagamento } from "@/types/prisma";
 import type { FormAction, FormState } from "@/types/form";
 import type { TipoTransacao } from "@/types/prisma";
 
@@ -27,6 +31,7 @@ type TransacaoFormProps = {
     valor: number;
     descricao: string;
     data: Date;
+    formaPagamento?: FormaPagamento | null;
   };
   submitLabel: string;
   cancelHref: string;
@@ -151,6 +156,23 @@ export function TransacaoForm({
             defaultValue={dataDefault}
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="formaPagamento">Forma de pagamento</Label>
+        <select
+          id="formaPagamento"
+          name="formaPagamento"
+          defaultValue={initial?.formaPagamento ?? ""}
+          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+        >
+          <option value="">Não informado</option>
+          {FORMAS_PAGAMENTO_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-2">
