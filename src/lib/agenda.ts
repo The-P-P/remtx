@@ -101,7 +101,7 @@ function emitirEventoLocacao(
   l: {
     id: string;
     dataInicio: Date;
-    dataFimPrevista: Date;
+    dataFimPrevista: Date | null;
     dataFimReal: Date | null;
     veiculo: { placa: string; modelo: string };
     cliente: { nome: string };
@@ -230,17 +230,19 @@ export async function getEventosAgenda(
     );
     if (evInicio) eventos.push(evInicio);
 
-    const evFimPrev = emitirEventoLocacao(
-      l,
-      "fim-prev",
-      l.dataFimPrevista,
-      "LOCACAO_FIM_PREVISTO",
-      `Devolução prevista — ${l.veiculo.placa}`,
-      inicio,
-      fim,
-      conclusaoMap
-    );
-    if (evFimPrev) eventos.push(evFimPrev);
+    if (l.dataFimPrevista) {
+      const evFimPrev = emitirEventoLocacao(
+        l,
+        "fim-prev",
+        l.dataFimPrevista,
+        "LOCACAO_FIM_PREVISTO",
+        `Devolução prevista — ${l.veiculo.placa}`,
+        inicio,
+        fim,
+        conclusaoMap
+      );
+      if (evFimPrev) eventos.push(evFimPrev);
+    }
 
     if (l.dataFimReal) {
       const evFimReal = emitirEventoLocacao(

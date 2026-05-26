@@ -14,6 +14,8 @@ import {
   ParcelaPagarButton,
 } from "@/components/locacoes/locacao-acoes";
 import { formatCurrency, formatKm } from "@/lib/utils";
+import { labelDataFimPrevista } from "@/lib/format/locacao";
+import { formatTelefoneDisplay } from "@/lib/format/br";
 import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 
 export default async function LocacaoDetalhePage({
@@ -62,7 +64,7 @@ export default async function LocacaoDetalhePage({
             <p className="text-xs text-muted-foreground">Período</p>
             <p className="mt-2 text-sm font-medium">
               {format(locacao.dataInicio, "dd/MM/yyyy", { locale: ptBR })} →{" "}
-              {format(locacao.dataFimPrevista, "dd/MM/yyyy", { locale: ptBR })}
+              {labelDataFimPrevista(locacao.dataFimPrevista)}
             </p>
           </CardContent>
         </Card>
@@ -101,7 +103,7 @@ export default async function LocacaoDetalhePage({
                 {locacao.cliente.nome}
               </Link>
             </p>
-            <p>{locacao.cliente.telefone}</p>
+            <p>{formatTelefoneDisplay(locacao.cliente.telefone)}</p>
           </CardContent>
         </Card>
         <Card>

@@ -2,6 +2,20 @@ import { addWeeks, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Prisma } from "@/generated/prisma/client";
 
+/** Horizonte de parcelas sem data de devolução (renovável ao confirmar pagamentos). */
+export const SEMANAS_PARCELAS_PRAZO_INDETERMINADO = 52;
+
+export function dataFimParaParcelas(
+  dataRetirada: Date,
+  dataFimPrevista: Date | null
+): Date {
+  if (dataFimPrevista) return startOfDay(dataFimPrevista);
+  return addWeeks(
+    startOfDay(dataRetirada),
+    SEMANAS_PARCELAS_PRAZO_INDETERMINADO
+  );
+}
+
 export function nomeDiaSemana(data: Date): string {
   return format(data, "EEEE", { locale: ptBR });
 }
@@ -41,7 +55,7 @@ export async function sincronizarParcelasSemanais(
   tx: Tx,
   locacaoId: string,
   dataRetirada: Date,
-  dataFimPrevista: Date,
+  dataFimPrevista: Date | null,
   valorSemanal: number
 ) {
   await tx.parcelaLocacao.deleteMany({
@@ -51,7 +65,8 @@ export async function sincronizarParcelasSemanais(
     },
   });
 
-  const vencimentos = listarVencimentosSemanais(dataRetirada, dataFimPrevista);
+  const fim = dataFimParaParcelas(dataRetirada, dataFimPrevista);
+  const vencimentos = listarVencimentosSemanais(dataRetirada, fim);
 
   if (vencimentos.length === 0) return;
 

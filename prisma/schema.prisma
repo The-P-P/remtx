@@ -129,7 +129,7 @@ model Locacao {
   veiculoId       String
   clienteId       String
   dataInicio      DateTime
-  dataFimPrevista  DateTime
+  dataFimPrevista  DateTime?
   dataFimReal     DateTime?
   kmInicio        Int
   kmFim           Int?

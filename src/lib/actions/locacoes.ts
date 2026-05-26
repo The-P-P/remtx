@@ -134,7 +134,8 @@ export async function createLocacao(
       veiculoId: formData.get("veiculoId"),
       clienteId: formData.get("clienteId"),
       dataInicio: formData.get("dataInicio"),
-      dataFimPrevista: formData.get("dataFimPrevista"),
+      dataFimPrevista: formData.get("dataFimPrevista") || undefined,
+      prazoIndeterminado: formData.get("prazoIndeterminado"),
       kmInicio: formData.get("kmInicio"),
       valorDiaria: formData.get("valorDiaria"),
       status: formData.get("status") || "RESERVADA",
@@ -228,7 +229,8 @@ export async function updateLocacao(
     }
 
     const parsed = locacaoUpdateSchema.safeParse({
-      dataFimPrevista: formData.get("dataFimPrevista"),
+      dataFimPrevista: formData.get("dataFimPrevista") || undefined,
+      prazoIndeterminado: formData.get("prazoIndeterminado"),
       valorDiaria: formData.get("valorDiaria"),
       observacoes: formData.get("observacoes") || undefined,
     });
@@ -240,7 +242,10 @@ export async function updateLocacao(
       };
     }
 
-    if (parsed.data.dataFimPrevista < locacao.dataInicio) {
+    if (
+      parsed.data.dataFimPrevista &&
+      parsed.data.dataFimPrevista < locacao.dataInicio
+    ) {
       return {
         success: false,
         error: "Data de devolução deve ser posterior ao início",
@@ -250,7 +255,11 @@ export async function updateLocacao(
     await prisma.$transaction(async (tx) => {
       await tx.locacao.update({
         where: { id },
-        data: parsed.data,
+        data: {
+          dataFimPrevista: parsed.data.dataFimPrevista,
+          valorDiaria: parsed.data.valorDiaria,
+          observacoes: parsed.data.observacoes,
+        },
       });
 
       if (locacao.status === "ATIVA") {

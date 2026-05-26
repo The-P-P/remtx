@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { labelDataFimPrevista } from "@/lib/format/locacao";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +36,7 @@ export function LocacoesList({ locacoes }: { locacoes: LocacaoItem[] }) {
               </p>
               <p className="text-xs text-muted-foreground">
                 {format(l.dataInicio, "dd/MM/yyyy", { locale: ptBR })} →{" "}
-                {format(l.dataFimPrevista, "dd/MM/yyyy", { locale: ptBR })} ·{" "}
+                {labelDataFimPrevista(l.dataFimPrevista)} ·{" "}
                 {formatCurrency(Number(l.valorDiaria))}/semana
               </p>
             </div>

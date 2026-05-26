@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,16 @@ export function LocacaoEditForm({
 }: {
   action: FormAction;
   initial: {
-    dataFimPrevista: Date;
+    dataFimPrevista: Date | null;
     valorDiaria: number;
     observacoes?: string | null;
   };
   locacaoId: string;
 }) {
+  const [prazoIndeterminado, setPrazoIndeterminado] = useState(
+    !initial.dataFimPrevista
+  );
+
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
@@ -37,14 +41,29 @@ export function LocacaoEditForm({
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="dataFimPrevista">Devolução prevista *</Label>
+        <Label htmlFor="dataFimPrevista">Devolução prevista</Label>
         <Input
           id="dataFimPrevista"
           name="dataFimPrevista"
           type="date"
-          defaultValue={format(initial.dataFimPrevista, "yyyy-MM-dd")}
-          required
+          disabled={prazoIndeterminado}
+          className={prazoIndeterminado ? "opacity-50" : undefined}
+          defaultValue={
+            initial.dataFimPrevista
+              ? format(initial.dataFimPrevista, "yyyy-MM-dd")
+              : undefined
+          }
         />
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            name="prazoIndeterminado"
+            className="size-4 rounded"
+            checked={prazoIndeterminado}
+            onChange={(e) => setPrazoIndeterminado(e.target.checked)}
+          />
+          Prazo indeterminado
+        </label>
       </div>
       <div className="space-y-2">
         <Label htmlFor="valorDiaria">Valor semanal (R$) *</Label>

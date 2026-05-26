@@ -11,10 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocacaoStatusBadge } from "@/components/locacoes/locacao-status-badge";
 
-function formatCpf(cpf: string) {
-  if (cpf.length !== 11) return cpf;
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
+import { formatCpfDisplay, formatTelefoneDisplay } from "@/lib/format/br";
 
 export default async function ClienteDetalhePage({
   params,
@@ -31,7 +28,7 @@ export default async function ClienteDetalhePage({
     <div className="space-y-6">
       <PageHeader
         title={cliente.nome}
-        description={formatCpf(cliente.cpf)}
+        description={formatCpfDisplay(cliente.cpf)}
         backHref="/clientes"
         action={
           <PageActions>
@@ -68,7 +65,7 @@ export default async function ClienteDetalhePage({
         <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 text-sm">
           <div>
             <p className="text-xs text-muted-foreground">Telefone</p>
-            <p className="font-medium">{cliente.telefone}</p>
+            <p className="font-medium">{formatTelefoneDisplay(cliente.telefone)}</p>
           </div>
           {cliente.email && (
             <div>

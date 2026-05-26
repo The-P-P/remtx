@@ -50,6 +50,7 @@ export function LocacaoForm({
 }) {
   const hoje = format(new Date(), "yyyy-MM-dd");
   const [veiculoId, setVeiculoId] = useState(veiculoIdPreselect ?? "");
+  const [prazoIndeterminado, setPrazoIndeterminado] = useState(false);
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
@@ -144,13 +145,24 @@ export function LocacaoForm({
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="dataFimPrevista">Devolução prevista *</Label>
+          <Label htmlFor="dataFimPrevista">Devolução prevista</Label>
           <Input
             id="dataFimPrevista"
             name="dataFimPrevista"
             type="date"
-            required
+            disabled={prazoIndeterminado}
+            className={prazoIndeterminado ? "opacity-50" : undefined}
           />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              name="prazoIndeterminado"
+              className="size-4 rounded"
+              checked={prazoIndeterminado}
+              onChange={(e) => setPrazoIndeterminado(e.target.checked)}
+            />
+            Prazo indeterminado (sem data de devolução)
+          </label>
         </div>
 
         <div className="space-y-2">

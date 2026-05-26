@@ -1,12 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
+import {
+  formatCpfDisplay,
+  formatCpfInput,
+  formatTelefoneDisplay,
+  formatTelefoneInput,
+} from "@/lib/format/br";
 import type { FormAction, FormState } from "@/types/form";
 
 type ClienteFormProps = {
@@ -29,6 +35,13 @@ export function ClienteForm({
   submitLabel,
   cancelHref,
 }: ClienteFormProps) {
+  const [cpf, setCpf] = useState(() =>
+    initial?.cpf ? formatCpfDisplay(initial.cpf) : ""
+  );
+  const [telefone, setTelefone] = useState(() =>
+    initial?.telefone ? formatTelefoneDisplay(initial.telefone) : ""
+  );
+
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
@@ -52,8 +65,11 @@ export function ClienteForm({
           <Input
             id="cpf"
             name="cpf"
-            defaultValue={initial?.cpf}
+            value={cpf}
+            onChange={(e) => setCpf(formatCpfInput(e.target.value))}
             placeholder="000.000.000-00"
+            inputMode="numeric"
+            autoComplete="off"
             required
           />
         </div>
@@ -62,7 +78,11 @@ export function ClienteForm({
           <Input
             id="telefone"
             name="telefone"
-            defaultValue={initial?.telefone}
+            value={telefone}
+            onChange={(e) => setTelefone(formatTelefoneInput(e.target.value))}
+            placeholder="+55 (99) 9 9999-9999"
+            inputMode="tel"
+            autoComplete="tel"
             required
           />
         </div>

@@ -3,13 +3,9 @@ import { Eye, Pencil, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { getClientes } from "@/lib/actions/clientes";
+import { formatCpfDisplay, formatTelefoneDisplay } from "@/lib/format/br";
 
 type ClienteItem = Awaited<ReturnType<typeof getClientes>>[number];
-
-function formatCpf(cpf: string) {
-  if (cpf.length !== 11) return cpf;
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
 
 export function ClientesList({ clientes }: { clientes: ClienteItem[] }) {
   if (clientes.length === 0) {
@@ -29,7 +25,7 @@ export function ClientesList({ clientes }: { clientes: ClienteItem[] }) {
               <div className="min-w-0">
                 <p className="font-semibold truncate">{c.nome}</p>
                 <p className="text-sm text-muted-foreground">
-                  {formatCpf(c.cpf)}
+                  {formatCpfDisplay(c.cpf)}
                 </p>
               </div>
               <div className="flex shrink-0 gap-0.5">
@@ -49,7 +45,7 @@ export function ClientesList({ clientes }: { clientes: ClienteItem[] }) {
                 </Button>
               </div>
             </div>
-            <p className="text-sm">{c.telefone}</p>
+            <p className="text-sm">{formatTelefoneDisplay(c.telefone)}</p>
             <p className="text-xs text-muted-foreground">
               {c._count.locacoes} locação(ões)
             </p>
