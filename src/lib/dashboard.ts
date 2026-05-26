@@ -1,9 +1,12 @@
 import { startOfMonth, endOfMonth } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { calcularAlertaKm } from "@/lib/manutencao-alerts";
+import { ensureCategoriasFinanceirasPadrao } from "@/lib/financeiro-categorias";
 import type { AlertaManutencao } from "@/types/prisma";
 
 export async function getDashboardData() {
+  await ensureCategoriasFinanceirasPadrao();
+
   const agora = new Date();
   const inicioMes = startOfMonth(agora);
   const fimMes = endOfMonth(agora);

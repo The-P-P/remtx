@@ -54,9 +54,9 @@ Acesse [http://localhost:3000](http://localhost:3000).
 | Fase | Módulos |
 |------|---------|
 | 0 ✅ | Estrutura, schema, auth, dashboard |
-| 1 | Veículos + Manutenção |
-| 2 | Clientes + Locações |
-| 3 | Financeiro |
+| 1 ✅ | Veículos + Manutenção |
+| 2 ✅ | Clientes + Locações (agenda, parcelas semanais, checks) |
+| 3 | Financeiro (entradas, saídas, fluxo de caixa) |
 | 4 | Relatórios |
 
 ## Scripts
@@ -66,5 +66,7 @@ Acesse [http://localhost:3000](http://localhost:3000).
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção |
 | `npm run db:migrate` | Aplicar migrations |
-| `npm run db:seed` | Popular dados de demonstração |
+| `npm run db:seed` | Popular dados de demonstração (inclui categorias financeiras padrão) |
+
+Se o banco já foi criado com `db push` antes da migration `20250521120000_fase2_agenda_parcelas`, marque-a como aplicada: `npx prisma migrate resolve --applied 20250521120000_fase2_agenda_parcelas`
 | `npm run db:studio` | Prisma Studio |

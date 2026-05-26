@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import {
   Check,
   CalendarClock,
@@ -12,6 +11,8 @@ import {
   Settings2,
   Banknote,
   Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  TIPO_EVENTO_AGENDA_LABEL,
-  TIPO_EVENTO_AGENDA_STYLE,
-} from "@/lib/constants/enums";
+import { TIPO_EVENTO_AGENDA_STYLE } from "@/lib/constants/enums";
 import { formatCurrency } from "@/lib/utils";
 import {
   concluirTarefaAgenda,
@@ -36,8 +34,12 @@ import {
   confirmarPagamentoParcela,
   ajustarPagamentoParcela,
 } from "@/lib/actions/agenda-tarefas";
-import { AgendaNovaTarefaForm } from "@/components/locacoes/agenda-nova-tarefa-form";
+import {
+  AgendaNovaTarefaForm,
+  type EventoAgendaEdit,
+} from "@/components/locacoes/agenda-nova-tarefa-form";
 import { submitNovoEventoAgenda } from "@/lib/actions/form-actions";
+import { deleteEventoAgenda } from "@/lib/actions/eventos-agenda";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
 type VeiculoOption = { id: string; placa: string; marca: string; modelo: string };
@@ -51,6 +53,7 @@ export type TarefaAgendaSerializada = {
   titulo: string;
   descricao?: string | null;
   dataInicio: string;
+  dataFim?: string | null;
   tipo: TipoEventoAgenda;
   href?: string;
   meta?: {
@@ -61,10 +64,18 @@ export type TarefaAgendaSerializada = {
     atrasado?: boolean;
     concluido?: boolean;
     pagamentoAjustado?: boolean;
+    veiculoId?: string;
+    clienteId?: string;
   };
 };
 
-type DialogMode = "reagendar" | "ajustar" | "confirmar" | "nova-tarefa" | null;
+type DialogMode =
+  | "reagendar"
+  | "ajustar"
+  | "confirmar"
+  | "nova-tarefa"
+  | "editar-tarefa"
+  | null;
 
 export function AgendaTarefasDia({
   tarefas,
@@ -75,6 +86,7 @@ export function AgendaTarefasDia({
   dia,
   veiculos,
   clientes,
+  abrirNovaTarefa,
 }: {
   tarefas: TarefaAgendaSerializada[];
   diaLabel: string;
@@ -84,6 +96,7 @@ export function AgendaTarefasDia({
   dia: number;
   veiculos: VeiculoOption[];
   clientes: ClienteOption[];
+  abrirNovaTarefa?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -92,6 +105,15 @@ export function AgendaTarefasDia({
   const [tarefaAtiva, setTarefaAtiva] = useState<TarefaAgendaSerializada | null>(
     null
   );
+  const abriuNovaTarefa = useRef(false);
+
+  useEffect(() => {
+    if (abrirNovaTarefa && !abriuNovaTarefa.current) {
+      abriuNovaTarefa.current = true;
+      setDialog("nova-tarefa");
+      setErro(null);
+    }
+  }, [abrirNovaTarefa]);
 
   function run(
     fn: () => Promise<{ success: boolean; error?: string }>,
@@ -116,8 +138,11 @@ export function AgendaTarefasDia({
   }
 
   const isPagamentoTipo = (tipo: TipoEventoAgenda) => tipo === "PAGAMENTO_CLIENTE";
+  const isEventoManual = (t: TarefaAgendaSerializada) =>
+    t.referenciaTipo === "evento";
+
   const isTarefaManual = (t: TarefaAgendaSerializada) =>
-    t.referenciaTipo === "evento" ||
+    isEventoManual(t) ||
     [
       "ENTREGA_VEICULO",
       "RETIRADA_VEICULO",
@@ -127,6 +152,20 @@ export function AgendaTarefasDia({
       "IPVA",
       "FINANCEIRO",
     ].includes(t.tipo);
+
+  function eventoEditFromTarefa(t: TarefaAgendaSerializada): EventoAgendaEdit {
+    return {
+      id: t.referenciaId,
+      tipo: t.tipo,
+      titulo: t.titulo,
+      descricao: t.descricao,
+      dataInicio: format(new Date(t.dataInicio), "yyyy-MM-dd"),
+      dataFim: t.dataFim,
+      veiculoId: t.meta?.veiculoId,
+      clienteId: t.meta?.clienteId,
+      valor: t.meta?.valor,
+    };
+  }
 
   return (
     <div className="space-y-3">
@@ -301,6 +340,43 @@ export function AgendaTarefasDia({
                   Desfazer
                 </Button>
               )}
+
+              {isEventoManual(t) && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => {
+                      setTarefaAtiva(t);
+                      setDialog("editar-tarefa");
+                      setErro(null);
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          "Excluir esta tarefa da agenda? Esta ação não pode ser desfeita."
+                        )
+                      ) {
+                        return;
+                      }
+                      run(() => deleteEventoAgenda(t.referenciaId));
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Excluir
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         );
@@ -314,6 +390,7 @@ export function AgendaTarefasDia({
               {dialog === "reagendar" && "Reagendar tarefa"}
               {dialog === "ajustar" && "Ajustar pagamento (check esquecido)"}
               {dialog === "nova-tarefa" && "Nova tarefa neste dia"}
+              {dialog === "editar-tarefa" && "Editar tarefa"}
             </DialogTitle>
           </DialogHeader>
 
@@ -396,7 +473,7 @@ export function AgendaTarefasDia({
             </form>
           )}
 
-          {dialog === "nova-tarefa" && (
+          {(dialog === "nova-tarefa" || dialog === "editar-tarefa") && (
             <AgendaNovaTarefaForm
               action={submitNovoEventoAgenda}
               veiculos={veiculos}
@@ -405,11 +482,20 @@ export function AgendaTarefasDia({
               redirectAno={ano}
               redirectMes={mes}
               redirectDia={dia}
+              eventoEdit={
+                dialog === "editar-tarefa" && tarefaAtiva
+                  ? eventoEditFromTarefa(tarefaAtiva)
+                  : null
+              }
               onSuccess={() => {
                 setDialog(null);
+                setTarefaAtiva(null);
                 router.refresh();
               }}
-              onCancel={() => setDialog(null)}
+              onCancel={() => {
+                setDialog(null);
+                setTarefaAtiva(null);
+              }}
             />
           )}
 

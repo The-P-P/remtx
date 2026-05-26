@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useActionState } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,18 @@ const selectClass =
 type VeiculoOption = { id: string; placa: string; marca: string; modelo: string };
 type ClienteOption = { id: string; nome: string };
 
+export type EventoAgendaEdit = {
+  id: string;
+  tipo: TipoEventoAgenda;
+  titulo: string;
+  descricao?: string | null;
+  dataInicio: string;
+  dataFim?: string | null;
+  veiculoId?: string;
+  clienteId?: string;
+  valor?: number;
+};
+
 export function AgendaNovaTarefaForm({
   action,
   veiculos,
@@ -24,6 +37,7 @@ export function AgendaNovaTarefaForm({
   redirectAno,
   redirectMes,
   redirectDia,
+  eventoEdit,
   onSuccess,
   onCancel,
 }: {
@@ -34,15 +48,24 @@ export function AgendaNovaTarefaForm({
   redirectAno: number;
   redirectMes: number;
   redirectDia: number;
+  eventoEdit?: EventoAgendaEdit | null;
   onSuccess?: () => void;
   onCancel?: () => void;
 }) {
-  const [tipo, setTipo] = useState<TipoEventoAgenda>("ENTREGA_VEICULO");
-  const [veiculoId, setVeiculoId] = useState("");
+  const isEdit = Boolean(eventoEdit?.id);
+
+  const [tipo, setTipo] = useState<TipoEventoAgenda>(
+    eventoEdit?.tipo ?? "ENTREGA_VEICULO"
+  );
+  const [veiculoId, setVeiculoId] = useState(eventoEdit?.veiculoId ?? "");
+  const [clienteId, setClienteId] = useState(eventoEdit?.clienteId ?? "");
   const [titulo, setTitulo] = useState(
-    TIPO_EVENTO_AGENDA_FORM.find((t) => t.value === "ENTREGA_VEICULO")?.tituloPadrao ??
+    eventoEdit?.titulo ??
+      TIPO_EVENTO_AGENDA_FORM.find((t) => t.value === "ENTREGA_VEICULO")
+        ?.tituloPadrao ??
       "Tarefa"
   );
+  const [tituloManual, setTituloManual] = useState(isEdit);
 
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
@@ -57,6 +80,11 @@ export function AgendaNovaTarefaForm({
 
   const veiculoSel = veiculos.find((v) => v.id === veiculoId);
 
+  const dataInicioValue = eventoEdit?.dataInicio ?? dataPadrao;
+  const dataFimValue = eventoEdit?.dataFim
+    ? format(new Date(eventoEdit.dataFim), "yyyy-MM-dd")
+    : "";
+
   useEffect(() => {
     if (wasPending.current && !pending && state.success) {
       onSuccess?.();
@@ -65,18 +93,20 @@ export function AgendaNovaTarefaForm({
   }, [pending, state.success, onSuccess]);
 
   useEffect(() => {
+    if (tituloManual) return;
     const padrao = tipoConfig?.tituloPadrao ?? "Tarefa";
     if (veiculoSel) {
       setTitulo(`${padrao} — ${veiculoSel.placa}`);
     } else {
       setTitulo(padrao);
     }
-  }, [tipo, veiculoSel?.placa, tipoConfig?.tituloPadrao]);
+  }, [tipo, veiculoSel?.placa, tipoConfig?.tituloPadrao, tituloManual]);
 
   const mostraValor = tipo === "FINANCEIRO";
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" key={eventoEdit?.id ?? "novo"}>
+      {isEdit && <input type="hidden" name="eventoId" value={eventoEdit!.id} />}
       <input type="hidden" name="semRedirect" value="sim" />
       <input type="hidden" name="redirectAno" value={String(redirectAno)} />
       <input type="hidden" name="redirectMes" value={String(redirectMes)} />
@@ -113,7 +143,10 @@ export function AgendaNovaTarefaForm({
           name="titulo"
           required
           value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
+          onChange={(e) => {
+            setTituloManual(true);
+            setTitulo(e.target.value);
+          }}
         />
       </div>
 
@@ -125,12 +158,17 @@ export function AgendaNovaTarefaForm({
             name="dataInicio"
             type="date"
             required
-            defaultValue={dataPadrao}
+            defaultValue={dataInicioValue}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="dataFim">Até (opcional)</Label>
-          <Input id="dataFim" name="dataFim" type="date" />
+          <Input
+            id="dataFim"
+            name="dataFim"
+            type="date"
+            defaultValue={dataFimValue}
+          />
         </div>
       </div>
 
@@ -158,7 +196,8 @@ export function AgendaNovaTarefaForm({
             id="clienteId"
             name="clienteId"
             className={selectClass}
-            defaultValue=""
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
           >
             <option value="">Nenhum</option>
             {clientes.map((c) => (
@@ -173,7 +212,14 @@ export function AgendaNovaTarefaForm({
       {mostraValor && (
         <div className="space-y-2">
           <Label htmlFor="valor">Valor (R$)</Label>
-          <Input id="valor" name="valor" type="number" step="0.01" min="0" />
+          <Input
+            id="valor"
+            name="valor"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={eventoEdit?.valor ?? ""}
+          />
         </div>
       )}
 
@@ -184,12 +230,17 @@ export function AgendaNovaTarefaForm({
           name="descricao"
           rows={3}
           placeholder="Ex.: Revisão 10.000 km — Oficina Centro"
+          defaultValue={eventoEdit?.descricao ?? ""}
         />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando..." : "Adicionar à agenda"}
+          {pending
+            ? "Salvando..."
+            : isEdit
+              ? "Salvar alterações"
+              : "Adicionar à agenda"}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>

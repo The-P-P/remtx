@@ -25,7 +25,10 @@ import {
   updateLocacao,
   createParcela,
 } from "@/lib/actions/locacoes";
-import { createEventoAgenda } from "@/lib/actions/eventos-agenda";
+import {
+  createEventoAgenda,
+  updateEventoAgenda,
+} from "@/lib/actions/eventos-agenda";
 import type { FormState } from "@/types/form";
 
 export async function submitNovoVeiculo(
@@ -230,7 +233,12 @@ export async function submitNovoEventoAgenda(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const result = await createEventoAgenda(formData);
+  const eventoId = formData.get("eventoId");
+  const result =
+    typeof eventoId === "string" && eventoId.length > 0
+      ? await updateEventoAgenda(eventoId, formData)
+      : await createEventoAgenda(formData);
+
   if (result.success) {
     if (formData.get("semRedirect") === "sim") {
       return { success: true };
@@ -245,7 +253,7 @@ export async function submitNovoEventoAgenda(
   }
   return {
     success: false,
-    error: !result.success ? result.error : "Erro ao criar tarefa",
+    error: !result.success ? result.error : "Erro ao salvar tarefa",
   };
 }
 

@@ -63,23 +63,10 @@ async function main() {
     }));
   const tipoRevisaoId = tipoRevisao10k?.id ?? tiposManutencaoIds[0];
 
-  const categorias = await Promise.all([
-    prisma.categoriaFinanceira.upsert({
-      where: { nome: "Locação de veículos" },
-      update: {},
-      create: { nome: "Locação de veículos", tipo: "ENTRADA" },
-    }),
-    prisma.categoriaFinanceira.upsert({
-      where: { nome: "Manutenção de frota" },
-      update: {},
-      create: { nome: "Manutenção de frota", tipo: "SAIDA" },
-    }),
-    prisma.categoriaFinanceira.upsert({
-      where: { nome: "Combustível" },
-      update: {},
-      create: { nome: "Combustível", tipo: "SAIDA" },
-    }),
-  ]);
+  const { ensureCategoriasFinanceirasPadrao } = await import(
+    "@/lib/financeiro-categorias"
+  );
+  const categorias = await ensureCategoriasFinanceirasPadrao();
 
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);

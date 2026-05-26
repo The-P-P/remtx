@@ -25,9 +25,7 @@ export default async function ClienteDetalhePage({
   const cliente = await getClienteById(id);
   if (!cliente) notFound();
 
-  const temLocacaoAtiva = cliente.locacoes.some((l) =>
-    ["ATIVA", "RESERVADA"].includes(l.status)
-  );
+  const podeExcluirCliente = cliente.locacoes.length === 0;
 
   return (
     <div className="space-y-6">
@@ -50,7 +48,7 @@ export default async function ClienteDetalhePage({
               <Calendar className="size-4" />
               Nova locação
             </Button>
-            {!temLocacaoAtiva && (
+            {podeExcluirCliente && (
               <form action={deleteClienteAction.bind(null, id)}>
                 <Button
                   type="submit"

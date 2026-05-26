@@ -130,16 +130,26 @@ export async function updateCliente(
 export async function deleteCliente(id: string): Promise<ActionResult> {
   try {
     await assertClienteAccess();
-    const locacoes = await prisma.locacao.count({
+
+    const locacoesAtivas = await prisma.locacao.count({
       where: {
         clienteId: id,
         status: { in: ["ATIVA", "RESERVADA"] },
       },
     });
-    if (locacoes > 0) {
+    if (locacoesAtivas > 0) {
       return {
         success: false,
         error: "Cliente com locação ativa ou reservada não pode ser excluído",
+      };
+    }
+
+    const totalLocacoes = await prisma.locacao.count({ where: { clienteId: id } });
+    if (totalLocacoes > 0) {
+      return {
+        success: false,
+        error:
+          "Cliente com histórico de locações não pode ser excluído. Mantenha o cadastro para consulta dos contratos.",
       };
     }
 

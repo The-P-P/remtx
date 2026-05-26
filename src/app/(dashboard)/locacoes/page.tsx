@@ -11,9 +11,10 @@ import { prisma } from "@/lib/prisma";
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ano?: string; mes?: string; dia?: string }>;
+  searchParams: Promise<{ ano?: string; mes?: string; dia?: string; nova?: string }>;
 }) {
   const params = await searchParams;
+  const abrirNovaTarefa = params.nova === "tarefa";
   const agora = new Date();
   const ano = Number(params.ano) || agora.getFullYear();
   const mes =
@@ -43,6 +44,7 @@ export default async function AgendaPage({
     titulo: e.titulo,
     descricao: e.descricao,
     dataInicio: e.dataInicio.toISOString(),
+    dataFim: e.dataFim?.toISOString() ?? null,
     tipo: e.tipo,
     href: e.href,
     meta: e.meta,
@@ -57,6 +59,7 @@ export default async function AgendaPage({
         diaSelecionado={dia}
         veiculos={veiculos}
         clientes={clientes}
+        abrirNovaTarefa={abrirNovaTarefa}
       />
     </LocacoesSection>
   );

@@ -48,6 +48,7 @@ export function AgendaCalendar({
   diaSelecionado,
   veiculos,
   clientes,
+  abrirNovaTarefa,
 }: {
   eventos: AgendaEventoSerializado[];
   ano: number;
@@ -55,6 +56,7 @@ export function AgendaCalendar({
   diaSelecionado?: number;
   veiculos: VeiculoOption[];
   clientes: ClienteOption[];
+  abrirNovaTarefa?: boolean;
 }) {
   const referencia = new Date(ano, mes - 1, 1);
   const inicioMes = startOfMonth(referencia);
@@ -234,6 +236,7 @@ export function AgendaCalendar({
               dia={diaAtivo.getDate()}
               veiculos={veiculos}
               clientes={clientes}
+              abrirNovaTarefa={abrirNovaTarefa}
             />
           ) : (
             <p className="text-sm text-muted-foreground">

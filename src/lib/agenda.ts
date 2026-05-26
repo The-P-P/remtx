@@ -26,6 +26,8 @@ export type AgendaEvento = {
   meta?: {
     placa?: string;
     clienteNome?: string;
+    veiculoId?: string;
+    clienteId?: string;
     valor?: number;
     valorBase?: number;
     valorJuros?: number;
@@ -309,7 +311,7 @@ export async function getEventosAgenda(
       titulo: e.titulo,
       descricao: e.descricao,
       dataInicio: dataExibicao,
-      dataFim: e.dataFim,
+      dataFim: e.dataFim ? startOfDay(e.dataFim) : null,
       tipo: e.tipo,
       href: e.locacaoId
         ? `/locacoes/${e.locacaoId}`
@@ -321,6 +323,8 @@ export async function getEventosAgenda(
       meta: {
         placa: e.veiculo?.placa,
         clienteNome: e.cliente?.nome,
+        veiculoId: e.veiculoId ?? undefined,
+        clienteId: e.clienteId ?? undefined,
         valor: e.valor ? Number(e.valor) : undefined,
         concluido: e.concluido,
       },

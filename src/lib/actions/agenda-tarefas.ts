@@ -5,6 +5,7 @@ import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
+import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -252,24 +253,20 @@ export async function confirmarPagamentoParcela(
       });
 
       if (registrarFinanceiro) {
-        const categoria = await tx.categoriaFinanceira.findFirst({
-          where: { nome: "Locação de veículos" },
+        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        const descricaoJuros =
+          Number(parcela.valorJuros) > 0
+            ? ` (incl. juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
+            : "";
+        await tx.transacaoFinanceira.create({
+          data: {
+            categoriaId: categoria.id,
+            tipo: "ENTRADA",
+            valor: valorPago,
+            descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome}${descricaoJuros}`,
+            data: new Date(),
+          },
         });
-        if (categoria) {
-          const descricaoJuros =
-            Number(parcela.valorJuros) > 0
-              ? ` (incl. juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
-              : "";
-          await tx.transacaoFinanceira.create({
-            data: {
-              categoriaId: categoria.id,
-              tipo: "ENTRADA",
-              valor: valorPago,
-              descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome}${descricaoJuros}`,
-              data: new Date(),
-            },
-          });
-        }
       }
     });
 
@@ -342,20 +339,16 @@ export async function ajustarPagamentoParcela(
       });
 
       if (registrarFinanceiro) {
-        const categoria = await tx.categoriaFinanceira.findFirst({
-          where: { nome: "Locação de veículos" },
+        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        await tx.transacaoFinanceira.create({
+          data: {
+            categoriaId: categoria.id,
+            tipo: "ENTRADA",
+            valor: valorBase,
+            descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome} (ajuste)`,
+            data: dataPagamento,
+          },
         });
-        if (categoria) {
-          await tx.transacaoFinanceira.create({
-            data: {
-              categoriaId: categoria.id,
-              tipo: "ENTRADA",
-              valor: valorBase,
-              descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome} (ajuste)`,
-              data: dataPagamento,
-            },
-          });
-        }
       }
     });
 

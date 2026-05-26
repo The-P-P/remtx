@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageActions } from "@/components/shared/page-actions";
 import { LocacoesNav } from "@/components/locacoes/locacoes-nav";
 import { Button } from "@/components/ui/button";
+
+function agendaNovaTarefaHref() {
+  const hoje = new Date();
+  return `/locacoes?ano=${hoje.getFullYear()}&mes=${hoje.getMonth() + 1}&dia=${hoje.getDate()}&nova=tarefa`;
+}
 
 export function LocacoesSection({
   children,
@@ -20,10 +25,10 @@ export function LocacoesSection({
             <Button
               variant="outline"
               className="w-full sm:w-auto"
-              render={<Link href="/locacoes/lembretes/nova" />}
+              render={<Link href={agendaNovaTarefaHref()} />}
             >
-              <Bell className="size-4" />
-              Novo lembrete / tarefa
+              <Plus className="size-4" />
+              Nova tarefa
             </Button>
           </PageActions>
         }

@@ -8,6 +8,7 @@ import {
   encerrarParcelasAposDevolucao,
   sincronizarParcelasSemanais,
 } from "@/lib/parcelas-semanais";
+import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import {
   locacaoCreateSchema,
@@ -404,20 +405,16 @@ export async function finalizarLocacao(
       });
 
       if (parsed.data.registrarFinanceiro) {
-        const categoria = await tx.categoriaFinanceira.findFirst({
-          where: { nome: "Locação de veículos" },
+        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        await tx.transacaoFinanceira.create({
+          data: {
+            categoriaId: categoria.id,
+            tipo: "ENTRADA",
+            valor: valorTotal,
+            descricao: `Locação ${locacao.veiculo.placa} — ${locacao.cliente.nome}`,
+            data: parsed.data.dataFimReal,
+          },
         });
-        if (categoria) {
-          await tx.transacaoFinanceira.create({
-            data: {
-              categoriaId: categoria.id,
-              tipo: "ENTRADA",
-              valor: valorTotal,
-              descricao: `Locação ${locacao.veiculo.placa} — ${locacao.cliente.nome}`,
-              data: parsed.data.dataFimReal,
-            },
-          });
-        }
       }
     });
 
