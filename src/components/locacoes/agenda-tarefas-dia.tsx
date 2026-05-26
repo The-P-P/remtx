@@ -40,6 +40,7 @@ import {
 } from "@/components/locacoes/agenda-nova-tarefa-form";
 import { submitNovoEventoAgenda } from "@/lib/actions/form-actions";
 import { deleteEventoAgenda } from "@/lib/actions/eventos-agenda";
+import { ReagendarPagamentoForm } from "@/components/locacoes/reagendar-pagamento-form";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
 type VeiculoOption = { id: string; placa: string; marca: string; modelo: string };
@@ -64,6 +65,9 @@ export type TarefaAgendaSerializada = {
     atrasado?: boolean;
     concluido?: boolean;
     pagamentoAjustado?: boolean;
+    dataVencimentoContrato?: string;
+    diaSemanaContrato?: string;
+    pagamentoReagendado?: boolean;
     veiculoId?: string;
     clienteId?: string;
   };
@@ -432,45 +436,68 @@ export function AgendaTarefasDia({
           )}
 
           {dialog === "reagendar" && tarefaAtiva && (
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                const novaData = fd.get("novaData") as string;
-                run(() =>
-                  reagendarTarefaAgenda(
-                    tarefaAtiva.chave,
-                    tarefaAtiva.tipo,
-                    tarefaAtiva.referenciaId,
-                    novaData
-                  )
-                );
-              }}
-            >
-              <div className="space-y-2">
-                <Label htmlFor="novaData">Nova data</Label>
-                <Input
-                  id="novaData"
-                  name="novaData"
-                  type="date"
-                  required
-                  defaultValue={format(
+            <>
+              {tarefaAtiva.tipo === "PAGAMENTO_CLIENTE" &&
+              tarefaAtiva.meta?.valorBase != null ? (
+                <ReagendarPagamentoForm
+                  valorBase={tarefaAtiva.meta.valorBase}
+                  vencimentoContrato={
+                    tarefaAtiva.meta.dataVencimentoContrato ??
+                    tarefaAtiva.dataInicio
+                  }
+                  diaSemanaContrato={tarefaAtiva.meta.diaSemanaContrato}
+                  dataPagamentoAtual={tarefaAtiva.dataInicio}
+                  defaultNovaData={format(
                     new Date(tarefaAtiva.dataInicio),
                     "yyyy-MM-dd"
                   )}
+                  disabled={pending}
+                  onSubmit={(fd) =>
+                    run(() =>
+                      reagendarTarefaAgenda(
+                        tarefaAtiva.chave,
+                        tarefaAtiva.tipo,
+                        tarefaAtiva.referenciaId,
+                        fd
+                      )
+                    )
+                  }
                 />
-              </div>
-              {tarefaAtiva.tipo === "PAGAMENTO_CLIENTE" && (
-                <p className="text-xs text-muted-foreground">
-                  Juros zerados até a nova data; após o vencimento, voltam a
-                  acumular 5% ao dia.
-                </p>
+              ) : (
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    run(() =>
+                      reagendarTarefaAgenda(
+                        tarefaAtiva.chave,
+                        tarefaAtiva.tipo,
+                        tarefaAtiva.referenciaId,
+                        fd
+                      )
+                    );
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="novaData">Nova data</Label>
+                    <Input
+                      id="novaData"
+                      name="novaData"
+                      type="date"
+                      required
+                      defaultValue={format(
+                        new Date(tarefaAtiva.dataInicio),
+                        "yyyy-MM-dd"
+                      )}
+                    />
+                  </div>
+                  <Button type="submit" disabled={pending} className="w-full">
+                    Reagendar
+                  </Button>
+                </form>
               )}
-              <Button type="submit" disabled={pending} className="w-full">
-                Reagendar
-              </Button>
-            </form>
+            </>
           )}
 
           {(dialog === "nova-tarefa" || dialog === "editar-tarefa") && (

@@ -156,6 +156,8 @@ model ParcelaLocacao {
   locacaoId              String
   valorBase              Decimal   @default(0) @db.Decimal(10, 2)
   valorJuros             Decimal   @default(0) @db.Decimal(10, 2)
+  /** Juros fixados ao reagendar com multa — não zeram quando a nova data é futura. */
+  jurosTravados          Decimal   @default(0) @db.Decimal(10, 2)
   valor                  Decimal   @db.Decimal(10, 2)
   dataVencimento         DateTime
   dataVencimentoOriginal DateTime?

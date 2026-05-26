@@ -47,7 +47,13 @@ export default async function AgendaPage({
     dataFim: e.dataFim?.toISOString() ?? null,
     tipo: e.tipo,
     href: e.href,
-    meta: e.meta,
+    meta: e.meta
+      ? {
+          ...e.meta,
+          dataVencimentoContrato: e.meta.dataVencimentoContrato
+            ?.toISOString(),
+        }
+      : undefined,
   }));
 
   return (

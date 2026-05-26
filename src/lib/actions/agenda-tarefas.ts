@@ -6,6 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
 import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
+import {
+  calcularJurosParcela,
+  valorTotalParcela,
+} from "@/lib/juros-parcela";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
@@ -136,11 +140,20 @@ export async function reagendarTarefaAgenda(
   chave: string,
   tipo: string,
   referenciaId: string,
-  novaData: string
+  formData: FormData
 ): Promise<ActionResult> {
   try {
     await assertAgendaAccess();
-    const data = startOfDay(new Date(novaData + "T12:00:00"));
+
+    const novaDataStr = formData.get("novaData") as string;
+    if (!novaDataStr) {
+      return { success: false, error: "Informe a nova data" };
+    }
+
+    const data = startOfDay(new Date(novaDataStr + "T12:00:00"));
+    const aplicarJuros =
+      formData.get("aplicarJuros") === "on" ||
+      formData.get("aplicarJuros") === "true";
 
     if (chave.startsWith("parcela-")) {
       const parcela = await prisma.parcelaLocacao.findUnique({
@@ -153,17 +166,37 @@ export async function reagendarTarefaAgenda(
         return { success: false, error: "Parcela já paga não pode ser reagendada" };
       }
 
-      const base = Number(parcela.valorBase);
+      const base = Number(parcela.valorBase ?? parcela.valor);
+      const vencimentoOriginal =
+        parcela.dataVencimentoOriginal ?? parcela.dataVencimento;
+
+      let valorJuros = 0;
+      let observacaoExtra = `Reagendado para ${novaDataStr} (sem juros de atraso)`;
+
+      if (aplicarJuros) {
+        const juros = calcularJurosParcela(
+          base,
+          vencimentoOriginal,
+          data,
+          false
+        );
+        valorJuros = juros.valorJuros;
+        observacaoExtra =
+          valorJuros > 0
+            ? `Reagendado para ${novaDataStr} (juros ${juros.diasAtraso} dia(s) até a nova data: R$ ${valorJuros.toFixed(2)})`
+            : `Reagendado para ${novaDataStr} (sem juros — nova data não ultrapassa o vencimento do contrato)`;
+      }
+
       await prisma.parcelaLocacao.update({
         where: { id: referenciaId },
         data: {
           dataVencimento: data,
-          valorJuros: 0,
-          valor: base,
-          observacoes: [
-            parcela.observacoes,
-            `Reagendado para ${novaData}`,
-          ]
+          dataVencimentoOriginal: vencimentoOriginal,
+          valorJuros,
+          jurosTravados: aplicarJuros ? valorJuros : 0,
+          valor: valorTotalParcela(base, valorJuros),
+          isentarJuros: false,
+          observacoes: [parcela.observacoes, observacaoExtra]
             .filter(Boolean)
             .join(" · "),
         },

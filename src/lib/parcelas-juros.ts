@@ -19,12 +19,18 @@ export async function atualizarJurosParcelasPendentes() {
   await Promise.all(
     parcelas.map(async (p) => {
       const valorBase = Number(p.valorBase ?? p.valor);
-      const { valorJuros } = calcularJurosParcela(
+      const jurosTravados = Number(p.jurosTravados ?? 0);
+
+      const { valorJuros: jurosDoVencimento } = calcularJurosParcela(
         valorBase,
         p.dataVencimento,
         hoje,
         p.isentarJuros
       );
+
+      const valorJuros = p.isentarJuros
+        ? 0
+        : Math.round((jurosTravados + jurosDoVencimento) * 100) / 100;
       const valor = valorTotalParcela(valorBase, valorJuros);
 
       if (

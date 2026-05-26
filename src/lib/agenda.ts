@@ -7,6 +7,7 @@ import {
 } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { prepararParcelasParaAgenda } from "@/lib/parcelas-juros";
+import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 import { calcularJurosParcela } from "@/lib/juros-parcela";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
@@ -35,6 +36,9 @@ export type AgendaEvento = {
     atrasado?: boolean;
     concluido?: boolean;
     pagamentoAjustado?: boolean;
+    dataVencimentoContrato?: Date;
+    diaSemanaContrato?: string;
+    pagamentoReagendado?: boolean;
   };
 };
 
@@ -261,6 +265,8 @@ export async function getEventosAgenda(
 
   for (const p of parcelas) {
     const valorBase = Number(p.valorBase ?? p.valor);
+    const valorJuros = Number(p.valorJuros);
+    const valor = Number(p.valor);
     const pago = !!p.dataPagamento;
     const dataExibicao = pago
       ? startOfDay(p.dataPagamento!)
@@ -268,11 +274,18 @@ export async function getEventosAgenda(
 
     if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
 
-    const { diasAtraso, valorJuros } = pago
-      ? { diasAtraso: 0, valorJuros: Number(p.valorJuros) }
+    const vencimentoContrato = startOfDay(
+      p.dataVencimentoOriginal ?? p.dataVencimento
+    );
+    const vencimentoPagamento = startOfDay(p.dataVencimento);
+    const pagamentoReagendado =
+      vencimentoContrato.getTime() !== vencimentoPagamento.getTime();
+
+    const { diasAtraso } = pago
+      ? { diasAtraso: 0 }
       : calcularJurosParcela(
           valorBase,
-          p.dataVencimento,
+          vencimentoPagamento,
           hoje,
           p.isentarJuros
         );
@@ -290,13 +303,16 @@ export async function getEventosAgenda(
       meta: {
         placa: p.locacao.veiculo.placa,
         clienteNome: p.locacao.cliente.nome,
-        valor: Number(p.valor),
+        valor,
         valorBase,
         valorJuros,
         diasAtraso,
         atrasado: !pago && diasAtraso > 0,
         concluido: pago,
         pagamentoAjustado: p.pagamentoAjustado,
+        dataVencimentoContrato: vencimentoContrato,
+        diaSemanaContrato: nomeDiaSemana(vencimentoContrato),
+        pagamentoReagendado,
       },
     });
   }
