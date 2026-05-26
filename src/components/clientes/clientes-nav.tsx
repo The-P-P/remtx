@@ -4,19 +4,31 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/locacoes", label: "Agenda", exact: true },
-  { href: "/locacoes/contratos", label: "Contratos", exact: false },
+  { href: "/clientes", label: "Cadastro", exact: true },
+  { href: "/clientes/contratos", label: "Contratos", exact: false },
 ] as const;
 
-export function LocacoesNav() {
+function isCadastroTab(pathname: string) {
+  if (pathname === "/clientes") return true;
+  if (pathname.startsWith("/clientes/contratos")) return false;
+  if (pathname.startsWith("/clientes/locacoes")) return false;
+  return (
+    pathname.startsWith("/clientes/") &&
+    !pathname.startsWith("/clientes/contratos")
+  );
+}
+
+export function ClientesNav() {
   const pathname = usePathname();
 
   return (
     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
       {TABS.map((tab) => {
-        const active = tab.exact
-          ? pathname === tab.href
-          : pathname.startsWith(tab.href);
+        const active = tab.href === "/clientes/contratos"
+          ? pathname.startsWith("/clientes/contratos") ||
+            pathname.startsWith("/clientes/locacoes")
+          : isCadastroTab(pathname);
+
         return (
           <Link
             key={tab.href}

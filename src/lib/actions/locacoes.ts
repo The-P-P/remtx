@@ -74,7 +74,7 @@ async function assertVeiculoDisponivelParaLocacao(
 
 function revalidateLocacaoPaths(locacaoId?: string, veiculoId?: string) {
   revalidatePath("/locacoes");
-  revalidatePath("/locacoes/contratos");
+  revalidatePath("/clientes/contratos");
   revalidatePath("/");
   revalidatePath("/veiculos");
   if (locacaoId) revalidatePath(`/locacoes/${locacaoId}`);

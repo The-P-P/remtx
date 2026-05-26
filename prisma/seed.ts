@@ -3,7 +3,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { TIPOS_MANUTENCAO_PREVENTIVA } from "./data/tipos-manutencao-preventiva";
-import { listarVencimentosSemanais } from "../src/lib/parcelas-semanais";
+import {
+  dataFimParaParcelas,
+  listarVencimentosSemanais,
+} from "../src/lib/parcelas-semanais";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -247,7 +250,10 @@ async function main() {
     if (parcelaCount === 0 && locAtivaExistente?.status === "ATIVA") {
       const vencimentos = listarVencimentosSemanais(
         locAtivaExistente.dataInicio,
-        locAtivaExistente.dataFimPrevista
+        dataFimParaParcelas(
+          locAtivaExistente.dataInicio,
+          locAtivaExistente.dataFimPrevista
+        )
       );
       const valorSem = Number(locAtivaExistente.valorDiaria);
       await prisma.parcelaLocacao.createMany({

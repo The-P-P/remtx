@@ -21,7 +21,7 @@ async function assertAgendaAccess() {
 
 function revalidateAgenda() {
   revalidatePath("/locacoes");
-  revalidatePath("/locacoes/contratos");
+  revalidatePath("/clientes/contratos");
   revalidatePath("/financeiro");
 }
 

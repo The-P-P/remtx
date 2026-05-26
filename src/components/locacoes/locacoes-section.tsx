@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageActions } from "@/components/shared/page-actions";
-import { LocacoesNav } from "@/components/locacoes/locacoes-nav";
 import { Button } from "@/components/ui/button";
 
 function agendaNovaTarefaHref() {
@@ -33,7 +32,6 @@ export function LocacoesSection({
           </PageActions>
         }
       />
-      <LocacoesNav />
       {children}
     </div>
   );

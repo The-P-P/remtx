@@ -19,7 +19,7 @@ export default async function ClientesNovaLocacaoPage({
 
   const cancelHref = clienteId
     ? `/clientes/${clienteId}`
-    : "/clientes";
+    : "/clientes/contratos";
 
   return (
     <div className="space-y-6">

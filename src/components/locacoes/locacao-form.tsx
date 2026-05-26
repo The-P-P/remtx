@@ -35,7 +35,7 @@ export function LocacaoForm({
   clientes,
   veiculoIdPreselect,
   clienteIdPreselect,
-  cancelHref = "/locacoes/contratos",
+  cancelHref = "/clientes/contratos",
   retornoCliente = false,
   clienteIdFixo,
 }: {

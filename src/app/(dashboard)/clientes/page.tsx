@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Plus, Calendar } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getClientes } from "@/lib/actions/clientes";
-import { PageHeader } from "@/components/shared/page-header";
+import { ClientesSection } from "@/components/clientes/clientes-section";
 import { PageActions } from "@/components/shared/page-actions";
 import { Button } from "@/components/ui/button";
 import { ClientesList } from "@/components/clientes/clientes-list";
@@ -16,31 +16,20 @@ export default async function ClientesPage({
   const clientes = await getClientes(q);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <PageHeader
-        title="Clientes"
-        description="Cadastro de clientes da locadora"
-        action={
-          <PageActions>
-            <Button
-              className="w-full sm:w-auto"
-              render={<Link href="/clientes/locacoes/nova" />}
-            >
-              <Calendar className="size-4" />
-              Nova locação
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              render={<Link href="/clientes/novo" />}
-            >
-              <Plus className="size-4" />
-              Novo cliente
-            </Button>
-          </PageActions>
-        }
-      />
-
+    <ClientesSection
+      description="Cadastro de clientes da locadora"
+      action={
+        <PageActions>
+          <Button
+            className="w-full sm:w-auto"
+            render={<Link href="/clientes/novo" />}
+          >
+            <Plus className="size-4" />
+            Novo cliente
+          </Button>
+        </PageActions>
+      }
+    >
       <form method="get" className="flex max-w-md gap-2">
         <Input
           name="q"
@@ -53,6 +42,6 @@ export default async function ClientesPage({
       </form>
 
       <ClientesList clientes={clientes} />
-    </div>
+    </ClientesSection>
   );
 }

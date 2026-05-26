@@ -34,7 +34,7 @@ export default async function LocacaoDetalhePage({
       <PageHeader
         title={`${locacao.veiculo.placa} — ${locacao.cliente.nome}`}
         description="Contrato de locação"
-        backHref="/locacoes/contratos"
+        backHref="/clientes/contratos"
         action={
           podeEditar ? (
             <PageActions>
