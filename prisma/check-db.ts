@@ -56,17 +56,17 @@ async function main() {
     console.log(`  - ${c.nome} (${c.tipo})`);
   }
 
-  const esperadas = [
-    "Locação de veículos",
-    "Manutenção de frota",
-    "Combustível",
-  ];
-  const faltando = esperadas.filter(
-    (n) => !categoriasNomes.some((c) => c.nome === n)
+  const { CATEGORIA_LOCACAO_NOME, CATEGORIAS_PADRAO } = await import(
+    "../src/lib/financeiro-categorias"
   );
-  if (faltando.length > 0) {
-    console.error("\n⚠ Categorias faltando:", faltando.join(", "));
+  if (!categoriasNomes.some((c) => c.nome === CATEGORIA_LOCACAO_NOME)) {
+    console.error(`\n⚠ Categoria obrigatória faltando: ${CATEGORIA_LOCACAO_NOME}`);
     process.exit(1);
+  }
+  if (categorias.length < CATEGORIAS_PADRAO.length) {
+    console.log(
+      `\nℹ Rode o app ou seed para criar ${CATEGORIAS_PADRAO.length - categorias.length} categoria(s) padrão faltante(s).`
+    );
   }
 
   if (migrations.length < 2) {

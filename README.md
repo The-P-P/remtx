@@ -56,7 +56,7 @@ Acesse [http://localhost:3000](http://localhost:3000).
 | 0 ✅ | Estrutura, schema, auth, dashboard |
 | 1 ✅ | Veículos + Manutenção |
 | 2 ✅ | Clientes + Locações (agenda, parcelas semanais, checks) |
-| 3 | Financeiro (entradas, saídas, fluxo de caixa) |
+| 3 ✅ | Financeiro (lançamentos, categorias, fluxo de caixa) |
 | 4 | Relatórios |
 
 ## Scripts

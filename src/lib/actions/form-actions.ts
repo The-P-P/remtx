@@ -29,6 +29,15 @@ import {
   createEventoAgenda,
   updateEventoAgenda,
 } from "@/lib/actions/eventos-agenda";
+import {
+  createTransacao,
+  updateTransacao,
+  deleteTransacao,
+  createCategoria,
+  updateCategoria,
+  deleteCategoria,
+} from "@/lib/actions/financeiro";
+import { financeiroQuery } from "@/lib/financeiro-periodo";
 import type { FormState } from "@/types/form";
 
 export async function submitNovoVeiculo(
@@ -270,4 +279,88 @@ export async function submitNovaParcela(
     success: false,
     error: !result.success ? result.error : "Erro ao criar parcela",
   };
+}
+
+function redirectFinanceiro(formData: FormData) {
+  const ano = Number(formData.get("redirectAno")) || new Date().getFullYear();
+  const mes = Number(formData.get("redirectMes")) || new Date().getMonth() + 1;
+  redirect(financeiroQuery(ano, mes));
+}
+
+export async function submitNovaTransacao(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await createTransacao(formData);
+  if (result.success) {
+    redirectFinanceiro(formData);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao criar lançamento",
+  };
+}
+
+export async function submitEditarTransacao(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateTransacao(id, formData);
+  if (result.success) {
+    redirectFinanceiro(formData);
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao salvar lançamento",
+  };
+}
+
+export async function deleteTransacaoAction(
+  id: string,
+  ano: number,
+  mes: number
+) {
+  const result = await deleteTransacao(id);
+  if (result.success) {
+    redirect(financeiroQuery(ano, mes));
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
+}
+
+export async function submitNovaCategoria(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await createCategoria(formData);
+  if (result.success) {
+    redirect("/financeiro/categorias");
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao criar categoria",
+  };
+}
+
+export async function submitEditarCategoria(
+  id: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const result = await updateCategoria(id, formData);
+  if (result.success) {
+    redirect("/financeiro/categorias");
+  }
+  return {
+    success: false,
+    error: !result.success ? result.error : "Erro ao salvar categoria",
+  };
+}
+
+export async function deleteCategoriaAction(id: string) {
+  const result = await deleteCategoria(id);
+  if (result.success) {
+    redirect("/financeiro/categorias");
+  }
+  throw new Error(!result.success ? result.error : "Erro ao excluir");
 }

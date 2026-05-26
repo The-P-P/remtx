@@ -2,9 +2,22 @@ import type {
   StatusVeiculo,
   StatusLocacao,
   TipoEventoAgenda,
+  TipoTransacao,
   GravidadeProblema,
   AlertaManutencao,
 } from "@/types/prisma";
+
+export const TIPO_TRANSACAO_LABEL: Record<TipoTransacao, string> = {
+  ENTRADA: "Entrada",
+  SAIDA: "Saída",
+};
+
+export const TIPO_TRANSACAO_STYLE: Record<TipoTransacao, string> = {
+  ENTRADA:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-200",
+  SAIDA:
+    "bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-200",
+};
 
 export const STATUS_VEICULO_LABEL: Record<StatusVeiculo, string> = {
   DISPONIVEL: "Disponível",

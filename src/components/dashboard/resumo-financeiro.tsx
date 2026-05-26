@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight, Scale } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,10 +23,13 @@ export function ResumoFinanceiro({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-base capitalize">
           Resumo financeiro — {mesLabel}
         </CardTitle>
+        <Button variant="outline" size="sm" render={<Link href="/financeiro" />}>
+          Ver financeiro
+        </Button>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-3 rounded-lg border border-emerald-200/60 bg-emerald-50/50 p-4 dark:border-emerald-500/40 dark:bg-emerald-500/10">
