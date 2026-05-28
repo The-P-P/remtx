@@ -17,11 +17,14 @@ export default async function EditarVeiculoPage({
   if (!veiculo) notFound();
 
   const boundAction = submitEditarVeiculo.bind(null, id);
+  const fin = veiculo.financiamento;
+  const temParcelasPagas =
+    fin?.parcelas.some((p) => p.dataPagamento) ?? false;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Editar ${veiculo.placa}`}
+        title={`Editar ${veiculo.apelido ? `${veiculo.apelido} · ` : ""}${veiculo.placa}`}
         backHref={`/veiculos/${id}`}
         action={
           <PageActions>
@@ -37,6 +40,22 @@ export default async function EditarVeiculoPage({
           <VeiculoForm
             action={boundAction}
             initial={veiculo}
+            financiamentoInitial={
+              fin
+                ? {
+                    instituicao: fin.instituicao,
+                    valorFinanciado: Number(fin.valorFinanciado),
+                    valorEntrada: Number(fin.valorEntrada),
+                    saldoDevedor: Number(fin.saldoDevedor),
+                    valorParcela: Number(fin.valorParcela),
+                    totalParcelas: fin.totalParcelas,
+                    diaVencimento: fin.diaVencimento,
+                    dataPrimeiraParcela: fin.dataPrimeiraParcela,
+                    observacoes: fin.observacoes,
+                    temParcelasPagas,
+                  }
+                : null
+            }
             submitLabel="Salvar alterações"
             cancelHref={`/veiculos/${id}`}
           />

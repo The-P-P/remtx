@@ -1,34 +1,99 @@
+"use client";
+
 import Link from "next/link";
-import { format } from "date-fns";
+import { useEffect, useMemo, useRef } from "react";
+import { format, isWithinInterval, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import type { FluxoMensalItem } from "@/lib/actions/financeiro";
+import type {
+  FluxoGranularidade,
+  FluxoPeriodoItem,
+} from "@/lib/actions/financeiro";
 
 export function FluxoCaixaTable({
   ano,
-  meses,
+  granularidade,
+  periodos,
   totalEntradas,
   totalSaidas,
   saldoAno,
 }: {
   ano: number;
-  meses: FluxoMensalItem[];
+  granularidade: FluxoGranularidade;
+  periodos: FluxoPeriodoItem[];
   totalEntradas: number;
   totalSaidas: number;
   saldoAno: number;
 }) {
   const agora = new Date().getFullYear();
+  const tabelaRef = useRef<HTMLDivElement | null>(null);
+  const labelGranularidade =
+    granularidade === "diario"
+      ? "Diário"
+      : granularidade === "semanal"
+        ? "Semanal"
+        : "Mensal";
+  const hoje = startOfDay(new Date());
+
+  const periodoAtualKey = useMemo(() => {
+    if (ano !== hoje.getFullYear()) return null;
+    const atual = periodos.find((p) =>
+      isWithinInterval(hoje, {
+        start: startOfDay(p.inicio),
+        end: startOfDay(p.fim),
+      })
+    );
+    return atual?.chave ?? null;
+  }, [ano, hoje, periodos]);
+
+  useEffect(() => {
+    if (!periodoAtualKey || !tabelaRef.current) return;
+    const el = tabelaRef.current.querySelector<HTMLElement>(
+      `[data-periodo="${periodoAtualKey}"]`
+    );
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [periodoAtualKey, granularidade]);
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+        <span className="px-2 text-xs text-muted-foreground">Visualização:</span>
+        <Button
+          variant={granularidade === "mensal" ? "secondary" : "ghost"}
+          size="sm"
+          render={<Link href={`/financeiro/fluxo?ano=${ano}&granularidade=mensal`} />}
+        >
+          Mensal
+        </Button>
+        <Button
+          variant={granularidade === "semanal" ? "secondary" : "ghost"}
+          size="sm"
+          render={<Link href={`/financeiro/fluxo?ano=${ano}&granularidade=semanal`} />}
+        >
+          Semanal
+        </Button>
+        <Button
+          variant={granularidade === "diario" ? "secondary" : "ghost"}
+          size="sm"
+          render={<Link href={`/financeiro/fluxo?ano=${ano}&granularidade=diario`} />}
+        >
+          Diário
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-2 py-1">
         <Button
           variant="ghost"
           size="icon-sm"
-          render={<Link href={`/financeiro/fluxo?ano=${ano - 1}`} />}
+          render={
+            <Link
+              href={`/financeiro/fluxo?ano=${ano - 1}&granularidade=${granularidade}`}
+            />
+          }
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -38,7 +103,7 @@ export function FluxoCaixaTable({
           size="icon-sm"
           render={
             <Link
-              href={`/financeiro/fluxo?ano=${ano + 1}`}
+              href={`/financeiro/fluxo?ano=${ano + 1}&granularidade=${granularidade}`}
               aria-disabled={ano >= agora + 1}
             />
           }
@@ -49,7 +114,9 @@ export function FluxoCaixaTable({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Resumo anual</CardTitle>
+          <CardTitle className="text-base">
+            Resumo anual ({labelGranularidade})
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3 text-sm">
           <div>
@@ -76,11 +143,11 @@ export function FluxoCaixaTable({
       </Card>
 
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="p-0 overflow-x-auto max-h-[65vh]" ref={tabelaRef}>
           <table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left">
-                <th className="px-4 py-3 font-medium">Mês</th>
+                <th className="px-4 py-3 font-medium">Período</th>
                 <th className="px-4 py-3 font-medium text-emerald-700 dark:text-emerald-500">
                   Entradas
                 </th>
@@ -92,34 +159,46 @@ export function FluxoCaixaTable({
               </tr>
             </thead>
             <tbody>
-              {meses.map((m) => (
-                <tr key={m.mes} className="border-b last:border-0">
+              {periodos.map((p) => {
+                const isAtual = p.chave === periodoAtualKey;
+                return (
+                <tr
+                  key={p.chave}
+                  data-periodo={p.chave}
+                  className={`border-b last:border-0 ${isAtual ? "bg-blue-50/70 dark:bg-blue-500/10" : ""}`}
+                >
                   <td className="px-4 py-3 font-medium capitalize">
-                    {format(new Date(ano, m.mes - 1, 1), "MMMM", {
-                      locale: ptBR,
-                    })}
+                    {granularidade === "mensal"
+                      ? format(p.inicio, "MMMM", { locale: ptBR })
+                      : granularidade === "semanal"
+                        ? `${format(p.inicio, "dd/MM", { locale: ptBR })} — ${format(p.fim, "dd/MM", { locale: ptBR })}`
+                        : format(p.inicio, "dd/MM/yyyy", { locale: ptBR })}
                   </td>
                   <td className="px-4 py-3 tabular-nums text-emerald-700 dark:text-emerald-500">
-                    {formatCurrency(m.entradas)}
+                    {formatCurrency(p.entradas)}
                   </td>
                   <td className="px-4 py-3 tabular-nums text-red-700 dark:text-red-500">
-                    {formatCurrency(m.saidas)}
+                    {formatCurrency(p.saidas)}
                   </td>
                   <td
-                    className={`px-4 py-3 tabular-nums font-medium ${m.saldo >= 0 ? "text-blue-700 dark:text-blue-500" : "text-red-700 dark:text-red-500"}`}
+                    className={`px-4 py-3 tabular-nums font-medium ${p.saldo >= 0 ? "text-blue-700 dark:text-blue-500" : "text-red-700 dark:text-red-500"}`}
                   >
-                    {formatCurrency(m.saldo)}
+                    {formatCurrency(p.saldo)}
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      href={`/financeiro?ano=${ano}&mes=${m.mes}`}
+                      href={
+                        granularidade === "mensal"
+                          ? `/financeiro?ano=${ano}&mes=${p.inicio.getMonth() + 1}`
+                          : `/financeiro?de=${format(p.inicio, "yyyy-MM-dd")}&ate=${format(p.fim, "yyyy-MM-dd")}`
+                      }
                       className="text-xs text-primary underline"
                     >
                       Ver
                     </Link>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
             <tfoot>
               <tr className="bg-muted/30 font-semibold">

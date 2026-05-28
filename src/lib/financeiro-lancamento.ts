@@ -13,6 +13,7 @@ export type DadosLancamentoFinanceiro = {
   parcelaId?: string | null;
   manutencaoId?: string | null;
   locacaoId?: string | null;
+  parcelaFinanciamentoId?: string | null;
 };
 
 export async function criarLancamentoFinanceiro(tx: Tx, dados: DadosLancamentoFinanceiro) {
@@ -28,6 +29,12 @@ export async function criarLancamentoFinanceiro(tx: Tx, dados: DadosLancamentoFi
     });
     if (existente) return existente;
   }
+  if (dados.parcelaFinanciamentoId) {
+    const existente = await tx.transacaoFinanceira.findUnique({
+      where: { parcelaFinanciamentoId: dados.parcelaFinanciamentoId },
+    });
+    if (existente) return existente;
+  }
 
   return tx.transacaoFinanceira.create({
     data: {
@@ -40,6 +47,7 @@ export async function criarLancamentoFinanceiro(tx: Tx, dados: DadosLancamentoFi
       parcelaId: dados.parcelaId ?? null,
       manutencaoId: dados.manutencaoId ?? null,
       locacaoId: dados.locacaoId ?? null,
+      parcelaFinanciamentoId: dados.parcelaFinanciamentoId ?? null,
     },
   });
 }

@@ -16,6 +16,7 @@ import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
 import { ProblemaCronicoForm } from "@/components/veiculos/problema-cronico-form";
 import { VeiculoManutencoesList } from "@/components/veiculos/veiculo-manutencoes-list";
+import { VeiculoFinanciamentoCard } from "@/components/veiculos/veiculo-financiamento-card";
 import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
 import { PageActions } from "@/components/shared/page-actions";
 import { GRAVIDADE_LABEL, GRAVIDADE_STYLE } from "@/lib/constants/enums";
@@ -40,8 +41,12 @@ export default async function VeiculoDetalhePage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${veiculo.placa} — ${veiculo.marca} ${veiculo.modelo}`}
-        description={`Ano ${veiculo.ano}${veiculo.cor ? ` · ${veiculo.cor}` : ""}`}
+        title={
+          veiculo.apelido
+            ? `${veiculo.apelido} (${veiculo.placa})`
+            : `${veiculo.placa} — ${veiculo.marca} ${veiculo.modelo}`
+        }
+        description={`${veiculo.marca} ${veiculo.modelo} · Ano ${veiculo.ano}${veiculo.cor ? ` · ${veiculo.cor}` : ""}`}
         backHref="/veiculos"
         action={
           <PageActions>
@@ -136,6 +141,10 @@ export default async function VeiculoDetalhePage({
             <p className="text-sm text-muted-foreground">{veiculo.observacoes}</p>
           </CardContent>
         </Card>
+      )}
+
+      {veiculo.financiamento && (
+        <VeiculoFinanciamentoCard financiamento={veiculo.financiamento} />
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
-import { formatKm } from "@/lib/utils";
+import { formatKm, formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { getVeiculos } from "@/lib/actions/veiculos";
 
 type VeiculoItem = Awaited<ReturnType<typeof getVeiculos>>[number];
@@ -30,6 +31,9 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-mono text-lg font-bold">{v.placa}</p>
+                {v.apelido && (
+                  <p className="text-sm font-medium text-primary">{v.apelido}</p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   {v.marca} {v.modelo} ({v.ano})
                 </p>
@@ -71,6 +75,11 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 kmAtual={v.kmAtual}
                 kmProximaRevisao={v.kmProximaRevisao}
               />
+              {v.financiamento?.ativo && (
+                <Badge variant="outline" className="text-xs">
+                  Financiado · {v.financiamento.parcelas.length} parcela(s) restante(s)
+                </Badge>
+              )}
             </div>
 
             <dl className="grid grid-cols-2 gap-2 text-sm">
@@ -82,6 +91,14 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 <dt className="text-xs text-muted-foreground">Revisão</dt>
                 <dd className="font-medium">{formatKm(v.kmProximaRevisao)}</dd>
               </div>
+              {v.financiamento?.ativo && (
+                <div className="col-span-2">
+                  <dt className="text-xs text-muted-foreground">Saldo financiamento</dt>
+                  <dd className="font-medium tabular-nums text-red-700 dark:text-red-500">
+                    {formatCurrency(Number(v.financiamento.saldoDevedor))}
+                  </dd>
+                </div>
+              )}
             </dl>
 
               <div className="flex flex-wrap gap-2 text-xs">

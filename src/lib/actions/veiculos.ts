@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { veiculoSchema, problemaCronicoSchema } from "@/lib/validations/veiculo";
+import { parseFinanciamentoFromFormData } from "@/lib/validations/financiamento-veiculo";
+import { criarFinanciamentoVeiculo } from "@/lib/actions/financiamento-veiculo";
+import { atualizarFinanciamentoBasico } from "@/lib/actions/financiamento-veiculo";
 export type ActionResult<T = void> =
   | { success: true; data?: T }
   | { success: false; error: string };
@@ -21,6 +24,17 @@ export async function getVeiculos(status?: string) {
     where: status ? { status: status as never } : undefined,
     orderBy: { placa: "asc" },
     include: {
+      financiamento: {
+        select: {
+          ativo: true,
+          saldoDevedor: true,
+          totalParcelas: true,
+          parcelas: {
+            where: { dataPagamento: null },
+            select: { id: true },
+          },
+        },
+      },
       _count: {
         select: {
           problemasCronicos: { where: { ativo: true } },
@@ -56,6 +70,11 @@ export async function getVeiculoById(id: string) {
           cliente: { select: { id: true, nome: true } },
         },
       },
+      financiamento: {
+        include: {
+          parcelas: { orderBy: { numero: "asc" } },
+        },
+      },
     },
   });
 }
@@ -67,6 +86,7 @@ export async function createVeiculo(
     await assertVeiculoAccess();
     const parsed = veiculoSchema.safeParse({
       placa: formData.get("placa"),
+      apelido: formData.get("apelido") || undefined,
       marca: formData.get("marca"),
       modelo: formData.get("modelo"),
       ano: formData.get("ano"),
@@ -82,7 +102,20 @@ export async function createVeiculo(
       return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
     }
 
+    const financiamentoInput = parseFinanciamentoFromFormData(formData);
+    if (financiamentoInput.emFinanciamento && "error" in financiamentoInput) {
+      return {
+        success: false,
+        error: financiamentoInput.error ?? "Dados de financiamento inválidos",
+      };
+    }
+
     const veiculo = await prisma.veiculo.create({ data: parsed.data });
+
+    if (financiamentoInput.emFinanciamento && financiamentoInput.data) {
+      await criarFinanciamentoVeiculo(veiculo.id, financiamentoInput.data);
+    }
+
     revalidatePath("/veiculos");
     revalidatePath("/");
     return { success: true, data: { id: veiculo.id } };
@@ -103,6 +136,7 @@ export async function updateVeiculo(
     await assertVeiculoAccess();
     const parsed = veiculoSchema.safeParse({
       placa: formData.get("placa"),
+      apelido: formData.get("apelido") || undefined,
       marca: formData.get("marca"),
       modelo: formData.get("modelo"),
       ano: formData.get("ano"),
@@ -118,7 +152,34 @@ export async function updateVeiculo(
       return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
     }
 
+    const financiamentoInput = parseFinanciamentoFromFormData(formData);
+
+    const existenteFin = await prisma.financiamentoVeiculo.findUnique({
+      where: { veiculoId: id },
+    });
+
+    if (financiamentoInput.emFinanciamento && "error" in financiamentoInput) {
+      return {
+        success: false,
+        error: financiamentoInput.error ?? "Dados de financiamento inválidos",
+      };
+    }
+
     await prisma.veiculo.update({ where: { id }, data: parsed.data });
+
+    if (financiamentoInput.emFinanciamento && financiamentoInput.data) {
+      if (existenteFin) {
+        const finResult = await atualizarFinanciamentoBasico(
+          existenteFin.id,
+          id,
+          formData
+        );
+        if (!finResult.success) return finResult;
+      } else {
+        await criarFinanciamentoVeiculo(id, financiamentoInput.data);
+      }
+    }
+
     revalidatePath("/locacoes");
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${id}`);

@@ -30,6 +30,7 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
   { nome: "Documentação e vistoria", tipo: "SAIDA" },
   { nome: "Rastreador e telemetria", tipo: "SAIDA" },
   { nome: "Pedágio e estacionamento", tipo: "SAIDA" },
+  { nome: "Parcela de financiamento", tipo: "SAIDA" },
   { nome: "Multas da frota", tipo: "SAIDA" },
   { nome: "Sinistro e franquia paga", tipo: "SAIDA" },
   { nome: "Transporte e guincho", tipo: "SAIDA" },
@@ -54,6 +55,7 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
 /** Nome fixo usado nos pagamentos de locação (agenda). */
 export const CATEGORIA_LOCACAO_NOME = "Locação de veículos";
 export const CATEGORIA_MANUTENCAO_NOME = "Manutenção de frota";
+export const CATEGORIA_FINANCIAMENTO_NOME = "Parcela de financiamento";
 
 /** Garante categorias padrão no banco (idempotente). */
 export async function ensureCategoriasFinanceirasPadrao(
@@ -86,6 +88,17 @@ export async function getCategoriaManutencaoFrota(
   const categorias = await ensureCategoriasFinanceirasPadrao(client);
   return (
     categorias.find((c) => c.nome === CATEGORIA_MANUTENCAO_NOME) ??
+    categorias.find((c) => c.tipo === "SAIDA") ??
+    categorias[0]
+  );
+}
+
+export async function getCategoriaFinanciamentoVeiculo(
+  client: Tx | typeof prisma = prisma
+) {
+  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  return (
+    categorias.find((c) => c.nome === CATEGORIA_FINANCIAMENTO_NOME) ??
     categorias.find((c) => c.tipo === "SAIDA") ??
     categorias[0]
   );

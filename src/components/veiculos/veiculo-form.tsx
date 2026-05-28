@@ -10,6 +10,10 @@ import { format } from "date-fns";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
 import type { StatusVeiculo } from "@/types/prisma";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
+import {
+  VeiculoFinanciamentoFields,
+  type FinanciamentoInitial,
+} from "@/components/veiculos/veiculo-financiamento-fields";
 import type { FormAction, FormState } from "@/types/form";
 
 const selectClass =
@@ -19,6 +23,7 @@ type VeiculoFormProps = {
   action: FormAction;
   initial?: {
     placa: string;
+    apelido?: string | null;
     marca: string;
     modelo: string;
     ano: number;
@@ -31,6 +36,7 @@ type VeiculoFormProps = {
   };
   submitLabel: string;
   cancelHref: string;
+  financiamentoInitial?: FinanciamentoInitial | null;
 };
 
 export function VeiculoForm({
@@ -38,6 +44,7 @@ export function VeiculoForm({
   initial,
   submitLabel,
   cancelHref,
+  financiamentoInitial,
 }: VeiculoFormProps) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
@@ -78,6 +85,19 @@ export function VeiculoForm({
               </option>
             ))}
           </select>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="apelido">Apelido</Label>
+          <Input
+            id="apelido"
+            name="apelido"
+            defaultValue={initial?.apelido ?? ""}
+            placeholder="Ex.: Uno prata, Carro reserva..."
+            maxLength={60}
+          />
+          <p className="text-xs text-muted-foreground">
+            Nome interno para reconhecer o veículo na frota (opcional).
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="marca">Marca *</Label>
@@ -149,6 +169,8 @@ export function VeiculoForm({
           rows={3}
         />
       </div>
+
+      <VeiculoFinanciamentoFields initial={financiamentoInitial} />
 
       <FormActionsRow>
         <Button type="submit" disabled={pending} className="w-full sm:w-auto">

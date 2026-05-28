@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   getTransacoes,
   getResumoFinanceiro,
@@ -12,10 +11,9 @@ import { FinanceiroResumoCards } from "@/components/financeiro/financeiro-resumo
 import { FinanceiroResumoCategorias } from "@/components/financeiro/financeiro-resumo-categorias";
 import { FinanceiroConferenciaCard } from "@/components/financeiro/financeiro-conferencia-card";
 import { FinanceiroExportButton } from "@/components/financeiro/financeiro-export-button";
+import { FinanceiroFiltrosSheet } from "@/components/financeiro/financeiro-filtros-sheet";
 import { TransacoesList } from "@/components/financeiro/transacoes-list";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { financeiroQuery } from "@/lib/financeiro-periodo";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -34,6 +32,8 @@ export default async function FinanceiroPage({
   searchParams: Promise<{
     ano?: string;
     mes?: string;
+    periodoTipo?: string;
+    dataRef?: string;
     de?: string;
     ate?: string;
     tipo?: string;
@@ -45,6 +45,8 @@ export default async function FinanceiroPage({
   const filtros = {
     ano: params.ano,
     mes: params.mes,
+    periodoTipo: params.periodoTipo,
+    dataRef: params.dataRef,
     de: params.de,
     ate: params.ate,
     tipo: params.tipo,
@@ -69,6 +71,8 @@ export default async function FinanceiroPage({
     tipo: params.tipo,
     categoriaId: params.categoriaId,
     q: params.q,
+    periodoTipo: params.periodoTipo,
+    dataRef: params.dataRef,
     de: params.de,
     ate: params.ate,
   };
@@ -82,6 +86,8 @@ export default async function FinanceiroPage({
     mes: params.de && params.ate ? undefined : String(resumoFinal.mes),
     de: params.de,
     ate: params.ate,
+    periodoTipo: params.periodoTipo,
+    dataRef: params.dataRef,
     tipo: params.tipo,
     categoriaId: params.categoriaId,
     q: params.q,
@@ -92,13 +98,27 @@ export default async function FinanceiroPage({
       ? `/financeiro?de=${params.de}&ate=${params.ate}`
       : financeiroQuery(resumoFinal.ano, resumoFinal.mes);
 
-  const temFiltrosExtras =
-    !!params.tipo || !!params.categoriaId || !!params.q;
-
   return (
     <FinanceiroSection
       novaTransacaoHref={novaHref}
       exportButton={<FinanceiroExportButton queryString={exportQuery} />}
+      navAction={
+        <FinanceiroFiltrosSheet
+          ano={resumoFinal.ano}
+          mes={resumoFinal.mes}
+          categorias={categorias}
+          defaults={{
+            periodoTipo: params.periodoTipo,
+            dataRef: params.dataRef,
+            de: params.de,
+            ate: params.ate,
+            q: params.q,
+            tipo: params.tipo,
+            categoriaId: params.categoriaId,
+          }}
+          limparHref={limparHref}
+        />
+      }
     >
       {resumoFinal.modo === "mes" ? (
         <FinanceiroMesNav
@@ -120,87 +140,10 @@ export default async function FinanceiroPage({
         saldo={resumoFinal.saldo}
       />
 
-      <FinanceiroResumoCategorias itens={resumoCategorias} />
-
-      <FinanceiroConferenciaCard conferencia={conferenciaFinal} />
-
-      <form method="get" className="space-y-3 rounded-lg border p-4">
-        <p className="text-sm font-medium">Filtros</p>
-        {resumoFinal.modo === "mes" && (
-          <>
-            <input type="hidden" name="ano" value={resumoFinal.ano} />
-            <input type="hidden" name="mes" value={resumoFinal.mes} />
-          </>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <label htmlFor="de" className="text-xs text-muted-foreground">
-              De (opcional — substitui o mês)
-            </label>
-            <Input id="de" name="de" type="date" defaultValue={params.de ?? ""} />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="ate" className="text-xs text-muted-foreground">
-              Até
-            </label>
-            <Input id="ate" name="ate" type="date" defaultValue={params.ate ?? ""} />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="q" className="text-xs text-muted-foreground">
-              Buscar descrição
-            </label>
-            <Input
-              id="q"
-              name="q"
-              placeholder="Ex.: placa, cliente..."
-              defaultValue={params.q ?? ""}
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="tipo" className="text-xs text-muted-foreground">
-              Tipo
-            </label>
-            <select
-              id="tipo"
-              name="tipo"
-              defaultValue={params.tipo ?? ""}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
-            >
-              <option value="">Todos</option>
-              <option value="ENTRADA">Entradas</option>
-              <option value="SAIDA">Saídas</option>
-            </select>
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <label htmlFor="categoriaId" className="text-xs text-muted-foreground">
-              Categoria
-            </label>
-            <select
-              id="categoriaId"
-              name="categoriaId"
-              defaultValue={params.categoriaId ?? ""}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
-            >
-              <option value="">Todas</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome} ({c.tipo === "ENTRADA" ? "E" : "S"})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="secondary">
-            Aplicar filtros
-          </Button>
-          {(temFiltrosExtras || params.de) && (
-            <Button variant="ghost" render={<Link href={limparHref} />}>
-              Limpar
-            </Button>
-          )}
-        </div>
-      </form>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FinanceiroResumoCategorias itens={resumoCategorias} />
+        <FinanceiroConferenciaCard conferencia={conferenciaFinal} />
+      </div>
 
       <Card>
         <CardContent className="p-0">

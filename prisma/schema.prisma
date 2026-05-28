@@ -44,6 +44,7 @@ enum TipoEventoAgenda {
   IPVA
   LEMBRETE
   FINANCEIRO
+  FINANCIAMENTO_VEICULO
 }
 
 enum TipoTransacao {
@@ -91,6 +92,7 @@ model User {
 model Veiculo {
   id               String        @id @default(cuid())
   placa            String        @unique
+  apelido          String?
   marca            String
   modelo           String
   ano              Int
@@ -107,9 +109,54 @@ model Veiculo {
   locacoes          Locacao[]
   problemasCronicos ProblemaCronico[]
   eventosAgenda     EventoAgenda[]
+  financiamento     FinanciamentoVeiculo?
 
   @@index([status])
   @@index([placa])
+}
+
+model FinanciamentoVeiculo {
+  id                  String    @id @default(cuid())
+  veiculoId           String    @unique
+  instituicao         String?
+  valorFinanciado     Decimal   @db.Decimal(12, 2)
+  valorEntrada        Decimal   @default(0) @db.Decimal(12, 2)
+  saldoDevedor        Decimal   @db.Decimal(12, 2)
+  valorParcela        Decimal   @db.Decimal(10, 2)
+  totalParcelas       Int
+  diaVencimento       Int
+  dataPrimeiraParcela DateTime
+  ativo               Boolean   @default(true)
+  quitadoEm           DateTime?
+  observacoes         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  veiculo   Veiculo                 @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+  parcelas  ParcelaFinanciamento[]
+
+  @@index([ativo])
+  @@index([saldoDevedor])
+}
+
+model ParcelaFinanciamento {
+  id                String    @id @default(cuid())
+  financiamentoId   String
+  numero            Int
+  valor             Decimal   @db.Decimal(10, 2)
+  dataVencimento    DateTime
+  dataPagamento     DateTime?
+  observacoes       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  financiamento         FinanciamentoVeiculo  @relation(fields: [financiamentoId], references: [id], onDelete: Cascade)
+  transacaoFinanceira TransacaoFinanceira?
+
+  @@unique([financiamentoId, numero])
+  @@index([financiamentoId])
+  @@index([dataVencimento])
+  @@index([dataPagamento])
 }
 
 // --- Clientes ---
@@ -326,16 +373,18 @@ model TransacaoFinanceira {
   descricao      String
   data           DateTime
   formaPagamento FormaPagamento?
-  parcelaId      String?         @unique
-  manutencaoId   String?         @unique
-  locacaoId      String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  parcelaId              String?         @unique
+  manutencaoId           String?         @unique
+  locacaoId              String?
+  parcelaFinanciamentoId String?         @unique
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
-  categoria  CategoriaFinanceira @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
-  parcela    ParcelaLocacao?     @relation(fields: [parcelaId], references: [id], onDelete: SetNull)
-  manutencao Manutencao?         @relation(fields: [manutencaoId], references: [id], onDelete: SetNull)
-  locacao    Locacao?            @relation(fields: [locacaoId], references: [id], onDelete: SetNull)
+  categoria            CategoriaFinanceira  @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  parcela              ParcelaLocacao?      @relation(fields: [parcelaId], references: [id], onDelete: SetNull)
+  manutencao           Manutencao?          @relation(fields: [manutencaoId], references: [id], onDelete: SetNull)
+  locacao              Locacao?             @relation(fields: [locacaoId], references: [id], onDelete: SetNull)
+  parcelaFinanciamento ParcelaFinanciamento? @relation(fields: [parcelaFinanciamentoId], references: [id], onDelete: SetNull)
 
   @@index([data])
   @@index([tipo])

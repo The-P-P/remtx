@@ -34,6 +34,7 @@ import {
   confirmarPagamentoParcela,
   ajustarPagamentoParcela,
 } from "@/lib/actions/agenda-tarefas";
+import { confirmarPagamentoParcelaFinanciamento } from "@/lib/actions/financiamento-veiculo";
 import {
   AgendaNovaTarefaForm,
   type EventoAgendaEdit,
@@ -49,7 +50,7 @@ type ClienteOption = { id: string; nome: string };
 export type TarefaAgendaSerializada = {
   id: string;
   chave: string;
-  referenciaTipo: "parcela" | "evento" | "agenda";
+  referenciaTipo: "parcela" | "evento" | "agenda" | "financiamento";
   referenciaId: string;
   titulo: string;
   descricao?: string | null;
@@ -70,6 +71,8 @@ export type TarefaAgendaSerializada = {
     pagamentoReagendado?: boolean;
     veiculoId?: string;
     clienteId?: string;
+    parcelaNumero?: number;
+    totalParcelas?: number;
   };
 };
 
@@ -141,7 +144,12 @@ export function AgendaTarefasDia({
     setErro(null);
   }
 
-  const isPagamentoTipo = (tipo: TipoEventoAgenda) => tipo === "PAGAMENTO_CLIENTE";
+  const isPagamentoCliente = (tipo: TipoEventoAgenda) =>
+    tipo === "PAGAMENTO_CLIENTE";
+  const isPagamentoFinanciamento = (tipo: TipoEventoAgenda) =>
+    tipo === "FINANCIAMENTO_VEICULO";
+  const isPagamentoTipo = (tipo: TipoEventoAgenda) =>
+    isPagamentoCliente(tipo) || isPagamentoFinanciamento(tipo);
   const isEventoManual = (t: TarefaAgendaSerializada) =>
     t.referenciaTipo === "evento";
 
@@ -225,17 +233,31 @@ export function AgendaTarefasDia({
                   <div className="mt-1 text-sm">
                     <p className="font-semibold">
                       {formatCurrency(t.meta.valor)}
-                      {t.meta.valorJuros != null && t.meta.valorJuros > 0 && (
-                        <span className="ml-1 font-normal text-amber-700 dark:text-amber-300">
-                          (base {formatCurrency(t.meta.valorBase ?? 0)} + juros{" "}
-                          {formatCurrency(t.meta.valorJuros)})
-                        </span>
-                      )}
+                      {isPagamentoCliente(t.tipo) &&
+                        t.meta.valorJuros != null &&
+                        t.meta.valorJuros > 0 && (
+                          <span className="ml-1 font-normal text-amber-700 dark:text-amber-300">
+                            (base {formatCurrency(t.meta.valorBase ?? 0)} + juros{" "}
+                            {formatCurrency(t.meta.valorJuros)})
+                          </span>
+                        )}
                     </p>
-                    {t.meta.atrasado && (
+                    {isPagamentoFinanciamento(t.tipo) &&
+                      t.meta.parcelaNumero != null &&
+                      t.meta.totalParcelas != null && (
+                        <p className="text-xs text-muted-foreground">
+                          Parcela {t.meta.parcelaNumero} de {t.meta.totalParcelas}
+                        </p>
+                      )}
+                    {t.meta.atrasado && isPagamentoCliente(t.tipo) && (
                       <p className="text-xs text-amber-700 dark:text-amber-300">
                         {t.meta.diasAtraso} dia(s) de atraso — 5% do valor
                         semanal por dia
+                      </p>
+                    )}
+                    {t.meta.atrasado && isPagamentoFinanciamento(t.tipo) && (
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Parcela em atraso
                       </p>
                     )}
                     {t.meta.pagamentoAjustado && (
@@ -271,15 +293,17 @@ export function AgendaTarefasDia({
                     <CalendarClock className="size-3.5" />
                     Reagendar
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={pending}
-                    onClick={() => abrirDialog("ajustar", t)}
-                  >
-                    <Settings2 className="size-3.5" />
-                    Ajustar check
-                  </Button>
+                  {isPagamentoCliente(t.tipo) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => abrirDialog("ajustar", t)}
+                    >
+                      <Settings2 className="size-3.5" />
+                      Ajustar check
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -408,13 +432,25 @@ export function AgendaTarefasDia({
               onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
-                run(() =>
-                  confirmarPagamentoParcela(tarefaAtiva.referenciaId, fd)
-                );
+                if (isPagamentoFinanciamento(tarefaAtiva.tipo)) {
+                  run(() =>
+                    confirmarPagamentoParcelaFinanciamento(
+                      tarefaAtiva.referenciaId,
+                      fd
+                    )
+                  );
+                } else {
+                  run(() =>
+                    confirmarPagamentoParcela(tarefaAtiva.referenciaId, fd)
+                  );
+                }
               }}
             >
               <p className="text-sm text-muted-foreground">
-                Valor a receber:{" "}
+                {isPagamentoFinanciamento(tarefaAtiva.tipo)
+                  ? "Valor a pagar"
+                  : "Valor a receber"}
+                :{" "}
                 <strong>{formatCurrency(tarefaAtiva.meta?.valor ?? 0)}</strong>
               </p>
               <label className="flex items-center gap-2 text-sm">
@@ -424,7 +460,9 @@ export function AgendaTarefasDia({
                   defaultChecked
                   className="size-4 rounded"
                 />
-                Registrar entrada no financeiro
+                {isPagamentoFinanciamento(tarefaAtiva.tipo)
+                  ? "Registrar saída no financeiro"
+                  : "Registrar entrada no financeiro"}
               </label>
               <div className="space-y-2">
                 <Label htmlFor="formaPagamentoConfirmar">Forma de pagamento</Label>
@@ -444,9 +482,11 @@ export function AgendaTarefasDia({
                   <option value="OUTRO">Outro</option>
                 </select>
               </div>
-              <p className="text-xs text-muted-foreground">
-                A próxima parcela semanal já está na agenda conforme o contrato.
-              </p>
+              {isPagamentoCliente(tarefaAtiva.tipo) && (
+                <p className="text-xs text-muted-foreground">
+                  A próxima parcela semanal já está na agenda conforme o contrato.
+                </p>
+              )}
               <Button type="submit" disabled={pending} className="w-full">
                 {pending ? "Salvando..." : "Confirmar pagamento"}
               </Button>

@@ -10,20 +10,24 @@ export function FinanceiroSection({
   showNovaTransacao = true,
   novaTransacaoHref = "/financeiro/nova",
   exportButton,
+  navAction,
 }: {
   children: React.ReactNode;
   showNovaTransacao?: boolean;
   novaTransacaoHref?: string;
   exportButton?: React.ReactNode;
+  navAction?: React.ReactNode;
 }) {
+  const hasActions = showNovaTransacao || exportButton;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Financeiro"
         description="Entradas, saídas e fluxo de caixa da locadora"
         action={
-          showNovaTransacao || exportButton ? (
-            <PageActions>
+          hasActions ? (
+            <PageActions className="sm:items-end">
               {exportButton}
               {showNovaTransacao && (
                 <Button
@@ -38,7 +42,7 @@ export function FinanceiroSection({
           ) : undefined
         }
       />
-      <FinanceiroNav />
+      <FinanceiroNav action={navAction} />
       {children}
     </div>
   );

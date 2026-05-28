@@ -1,11 +1,18 @@
-import { endOfMonth, startOfDay, startOfMonth } from "date-fns";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
 
 export type PeriodoFinanceiro = {
   ano: number;
   mes: number;
   inicio: Date;
   fim: Date;
-  modo: "mes" | "intervalo";
+  modo: "mes" | "intervalo" | "semana" | "dia";
 };
 
 export function parsePeriodoFinanceiro(params: {
@@ -13,6 +20,8 @@ export function parsePeriodoFinanceiro(params: {
   mes?: string;
   de?: string;
   ate?: string;
+  periodoTipo?: string;
+  dataRef?: string;
 }): PeriodoFinanceiro {
   const agora = new Date();
 
@@ -25,6 +34,32 @@ export function parsePeriodoFinanceiro(params: {
       inicio,
       fim: fim < inicio ? inicio : fim,
       modo: "intervalo",
+    };
+  }
+
+  if (params.periodoTipo === "semana" || params.periodoTipo === "dia") {
+    const ref = params.dataRef
+      ? startOfDay(new Date(params.dataRef + "T12:00:00"))
+      : startOfDay(agora);
+
+    if (params.periodoTipo === "dia") {
+      return {
+        ano: ref.getFullYear(),
+        mes: ref.getMonth() + 1,
+        inicio: ref,
+        fim: endOfDay(ref),
+        modo: "dia",
+      };
+    }
+
+    const inicioSemana = startOfWeek(ref, { weekStartsOn: 1 });
+    const fimSemana = endOfWeek(ref, { weekStartsOn: 1 });
+    return {
+      ano: ref.getFullYear(),
+      mes: ref.getMonth() + 1,
+      inicio: inicioSemana,
+      fim: fimSemana,
+      modo: "semana",
     };
   }
 

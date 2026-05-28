@@ -11,7 +11,7 @@ import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 import { calcularJurosParcela } from "@/lib/juros-parcela";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
-export type ReferenciaAgenda = "parcela" | "evento" | "agenda";
+export type ReferenciaAgenda = "parcela" | "evento" | "agenda" | "financiamento";
 
 export type AgendaEvento = {
   id: string;
@@ -39,6 +39,8 @@ export type AgendaEvento = {
     dataVencimentoContrato?: Date;
     diaSemanaContrato?: string;
     pagamentoReagendado?: boolean;
+    parcelaNumero?: number;
+    totalParcelas?: number;
   };
 };
 
@@ -151,6 +153,7 @@ export async function getEventosAgenda(
   const [
     locacoes,
     parcelas,
+    parcelasFinanciamento,
     eventosManuais,
     veiculosComIpva,
     conclusoes,
@@ -174,6 +177,24 @@ export async function getEventosAgenda(
           include: {
             veiculo: { select: { placa: true } },
             cliente: { select: { nome: true, id: true } },
+          },
+        },
+      },
+    }),
+    prisma.parcelaFinanciamento.findMany({
+      where: {
+        financiamento: { ativo: true },
+        OR: [
+          { dataVencimento: { gte: inicio, lte: fim } },
+          { dataPagamento: { gte: inicio, lte: fim } },
+        ],
+      },
+      include: {
+        financiamento: {
+          include: {
+            veiculo: {
+              select: { id: true, placa: true, apelido: true, marca: true, modelo: true },
+            },
           },
         },
       },
@@ -313,6 +334,48 @@ export async function getEventosAgenda(
         dataVencimentoContrato: vencimentoContrato,
         diaSemanaContrato: nomeDiaSemana(vencimentoContrato),
         pagamentoReagendado,
+      },
+    });
+  }
+
+  for (const p of parcelasFinanciamento) {
+    const pago = !!p.dataPagamento;
+    const dataExibicao = pago
+      ? startOfDay(p.dataPagamento!)
+      : startOfDay(p.dataVencimento);
+
+    if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
+
+    const v = p.financiamento.veiculo;
+    const labelVeiculo = v.apelido
+      ? `${v.apelido} (${v.placa})`
+      : `${v.placa} — ${v.marca} ${v.modelo}`;
+    const atrasado =
+      !pago && startOfDay(p.dataVencimento) < startOfDay(hoje);
+
+    eventos.push({
+      id: `financiamento-${p.id}`,
+      chave: `financiamento-${p.id}`,
+      referenciaTipo: "financiamento",
+      referenciaId: p.id,
+      titulo: `Financiamento — ${labelVeiculo}`,
+      descricao: [
+        p.financiamento.instituicao,
+        `Parcela ${p.numero}/${p.financiamento.totalParcelas}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      dataInicio: dataExibicao,
+      tipo: "FINANCIAMENTO_VEICULO",
+      href: `/veiculos/${v.id}`,
+      meta: {
+        placa: v.placa,
+        veiculoId: v.id,
+        valor: Number(p.valor),
+        atrasado,
+        concluido: pago,
+        parcelaNumero: p.numero,
+        totalParcelas: p.financiamento.totalParcelas,
       },
     });
   }

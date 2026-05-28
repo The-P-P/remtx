@@ -7,6 +7,7 @@ import { requireAuth, hasPermission } from "@/lib/auth";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
 import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
 import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
+import { estornarPagamentoParcelaFinanciamento } from "@/lib/actions/financiamento-veiculo";
 import type { FormaPagamento } from "@/types/prisma";
 import {
   calcularJurosParcela,
@@ -39,7 +40,7 @@ export async function concluirTarefaAgenda(
   try {
     await assertAgendaAccess();
 
-    if (chave.startsWith("parcela-")) {
+    if (chave.startsWith("parcela-") || chave.startsWith("financiamento-")) {
       return {
         success: false,
         error: "Use confirmar pagamento para parcelas",
@@ -93,6 +94,10 @@ export async function desfazerTarefaAgenda(
 ): Promise<ActionResult> {
   try {
     await assertAgendaAccess();
+
+    if (chave.startsWith("financiamento-")) {
+      return estornarPagamentoParcelaFinanciamento(referenciaId);
+    }
 
     if (chave.startsWith("parcela-")) {
       const parcela = await prisma.parcelaLocacao.findUnique({
@@ -156,6 +161,25 @@ export async function reagendarTarefaAgenda(
     const aplicarJuros =
       formData.get("aplicarJuros") === "on" ||
       formData.get("aplicarJuros") === "true";
+
+    if (chave.startsWith("financiamento-")) {
+      const parcela = await prisma.parcelaFinanciamento.findUnique({
+        where: { id: referenciaId },
+      });
+      if (!parcela) {
+        return { success: false, error: "Parcela não encontrada" };
+      }
+      if (parcela.dataPagamento) {
+        return { success: false, error: "Parcela já paga não pode ser reagendada" };
+      }
+      await prisma.parcelaFinanciamento.update({
+        where: { id: referenciaId },
+        data: { dataVencimento: data },
+      });
+      revalidateAgenda();
+      revalidatePath("/veiculos");
+      return { success: true };
+    }
 
     if (chave.startsWith("parcela-")) {
       const parcela = await prisma.parcelaLocacao.findUnique({

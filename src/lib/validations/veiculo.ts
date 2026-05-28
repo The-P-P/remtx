@@ -6,6 +6,14 @@ export const veiculoSchema = z.object({
     .min(7, "Placa inválida")
     .max(8)
     .transform((v) => v.toUpperCase().replace(/[^A-Z0-9]/g, "")),
+  apelido: z
+    .string()
+    .max(60, "Apelido muito longo")
+    .optional()
+    .transform((v) => {
+      const t = v?.trim();
+      return t && t.length > 0 ? t : null;
+    }),
   marca: z.string().min(2, "Marca obrigatória"),
   modelo: z.string().min(1, "Modelo obrigatório"),
   ano: z.coerce.number().int().min(1990).max(new Date().getFullYear() + 1),

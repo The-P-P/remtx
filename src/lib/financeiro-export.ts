@@ -51,8 +51,10 @@ export function labelOrigemTransacao(t: {
   parcelaId: string | null;
   manutencaoId: string | null;
   locacaoId: string | null;
+  parcelaFinanciamentoId?: string | null;
 }) {
   if (t.parcelaId) return "Locação (parcela)";
+  if (t.parcelaFinanciamentoId) return "Financiamento (parcela)";
   if (t.manutencaoId) return "Manutenção";
   if (t.locacaoId) return "Locação (contrato)";
   return "Manual";

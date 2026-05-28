@@ -1,7 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { startOfDay, startOfYear, endOfYear } from "date-fns";
+import {
+  startOfDay,
+  startOfYear,
+  endOfYear,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachWeekOfInterval,
+  eachDayOfInterval,
+} from "date-fns";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hasPermission } from "@/lib/auth";
@@ -18,6 +27,8 @@ export type FiltrosTransacao = {
   mes?: string;
   de?: string;
   ate?: string;
+  periodoTipo?: string;
+  dataRef?: string;
   tipo?: string;
   categoriaId?: string;
   q?: string;
@@ -49,6 +60,17 @@ const transacaoInclude = {
       id: true,
       veiculo: { select: { placa: true } },
       cliente: { select: { nome: true } },
+    },
+  },
+  parcelaFinanciamento: {
+    select: {
+      id: true,
+      numero: true,
+      financiamento: {
+        select: {
+          veiculo: { select: { id: true, placa: true } },
+        },
+      },
     },
   },
 };
@@ -257,16 +279,24 @@ export async function getTransacoesParaExport(params: FiltrosTransacao) {
   }));
 }
 
-export type FluxoMensalItem = {
-  mes: number;
+export type FluxoGranularidade = "mensal" | "semanal" | "diario";
+
+export type FluxoPeriodoItem = {
+  chave: string;
+  inicio: Date;
+  fim: Date;
   entradas: number;
   saidas: number;
   saldo: number;
 };
 
-export async function getFluxoMensalAno(anoParam?: string): Promise<{
+export async function getFluxoAno(
+  anoParam?: string,
+  granularidade: FluxoGranularidade = "mensal"
+): Promise<{
   ano: number;
-  meses: FluxoMensalItem[];
+  granularidade: FluxoGranularidade;
+  periodos: FluxoPeriodoItem[];
   totalEntradas: number;
   totalSaidas: number;
   saldoAno: number;
@@ -280,33 +310,72 @@ export async function getFluxoMensalAno(anoParam?: string): Promise<{
     select: { tipo: true, valor: true, data: true },
   });
 
-  const meses: FluxoMensalItem[] = Array.from({ length: 12 }, (_, i) => ({
-    mes: i + 1,
-    entradas: 0,
-    saidas: 0,
-    saldo: 0,
-  }));
+  const periodos: FluxoPeriodoItem[] =
+    granularidade === "diario"
+      ? eachDayOfInterval({ start: inicio, end: fim }).map((d) => ({
+          chave: d.toISOString().slice(0, 10),
+          inicio: d,
+          fim: d,
+          entradas: 0,
+          saidas: 0,
+          saldo: 0,
+        }))
+      : granularidade === "semanal"
+        ? eachWeekOfInterval(
+            { start: inicio, end: fim },
+            { weekStartsOn: 1 }
+          ).map((w) => {
+            const weekStart = startOfWeek(w, { weekStartsOn: 1 });
+            const weekEnd = endOfWeek(w, { weekStartsOn: 1 });
+            return {
+              chave: weekStart.toISOString().slice(0, 10),
+              inicio: weekStart,
+              fim: weekEnd > fim ? fim : weekEnd,
+              entradas: 0,
+              saidas: 0,
+              saldo: 0,
+            };
+          })
+        : Array.from({ length: 12 }, (_, i) => {
+            const mInicio = startOfDay(new Date(ano, i, 1));
+            const mFim = endOfMonth(mInicio);
+            return {
+              chave: `${ano}-${String(i + 1).padStart(2, "0")}`,
+              inicio: mInicio,
+              fim: mFim > fim ? fim : mFim,
+              entradas: 0,
+              saidas: 0,
+              saldo: 0,
+            };
+          });
 
   for (const t of transacoes) {
-    const idx = t.data.getMonth();
+    let idx = -1;
+    if (granularidade === "mensal") {
+      idx = t.data.getMonth();
+    } else {
+      idx = periodos.findIndex((p) => t.data >= p.inicio && t.data <= p.fim);
+    }
+    if (idx < 0) continue;
     const v = Number(t.valor);
-    if (t.tipo === "ENTRADA") meses[idx].entradas += v;
-    else meses[idx].saidas += v;
+    if (t.tipo === "ENTRADA") periodos[idx].entradas += v;
+    else periodos[idx].saidas += v;
   }
 
   let totalEntradas = 0;
   let totalSaidas = 0;
-  for (const m of meses) {
-    m.entradas = Math.round(m.entradas * 100) / 100;
-    m.saidas = Math.round(m.saidas * 100) / 100;
-    m.saldo = Math.round((m.entradas - m.saidas) * 100) / 100;
-    totalEntradas += m.entradas;
-    totalSaidas += m.saidas;
+  for (const p of periodos) {
+    p.entradas = Math.round(p.entradas * 100) / 100;
+    p.saidas = Math.round(p.saidas * 100) / 100;
+    p.saldo = Math.round((p.entradas - p.saidas) * 100) / 100;
+    totalEntradas += p.entradas;
+    totalSaidas += p.saidas;
   }
 
   return {
     ano,
-    meses,
+    granularidade,
+    periodos,
     totalEntradas: Math.round(totalEntradas * 100) / 100,
     totalSaidas: Math.round(totalSaidas * 100) / 100,
     saldoAno: Math.round((totalEntradas - totalSaidas) * 100) / 100,

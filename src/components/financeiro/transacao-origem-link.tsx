@@ -33,6 +33,19 @@ export function TransacaoOrigemLink({ t }: { t: TransacaoListItem }) {
       </Badge>
     );
   }
+  if (t.parcelaFinanciamento) {
+    return (
+      <Badge variant="outline" className="text-xs font-normal">
+        <Link
+          href={`/veiculos/${t.parcelaFinanciamento.financiamento.veiculo.id}`}
+          className="hover:underline"
+        >
+          Financiamento · {t.parcelaFinanciamento.financiamento.veiculo.placa} (
+          {t.parcelaFinanciamento.numero}ª)
+        </Link>
+      </Badge>
+    );
+  }
   return (
     <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
       Manual

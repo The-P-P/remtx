@@ -103,6 +103,7 @@ export const TIPO_EVENTO_AGENDA_LABEL: Record<TipoEventoAgenda, string> = {
   IPVA: "IPVA",
   LEMBRETE: "Lembrete",
   FINANCEIRO: "Financeiro",
+  FINANCIAMENTO_VEICULO: "Financiamento veículo",
 };
 
 export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
@@ -128,6 +129,8 @@ export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
     "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
   FINANCEIRO:
     "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  FINANCIAMENTO_VEICULO:
+    "bg-fuchsia-500/15 text-fuchsia-800 dark:text-fuchsia-300 border-fuchsia-500/30",
 };
 
 /** Tipos que o usuário pode criar manualmente na agenda. */
