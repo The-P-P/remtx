@@ -12,7 +12,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: "LayoutDashboard" as const },
+  { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" as const },
   { href: "/veiculos", label: "Veículos", icon: "Car" as const },
   { href: "/manutencoes", label: "Manutenções", icon: "Wrench" as const },
   { href: "/clientes", label: "Clientes", icon: "Users" as const },

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import { isClerkConfigured } from "@/lib/clerk-config";
 
 const vantagens = [
   "Visão em tempo real da frota, locações, manutenção e financeiro em um só lugar.",
@@ -19,7 +22,14 @@ const metricas = [
   { valor: "24h", label: "visao ativa do negocio" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  if (isClerkConfigured()) {
+    const { userId } = await auth();
+    if (userId) {
+      redirect("/dashboard");
+    }
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0">
