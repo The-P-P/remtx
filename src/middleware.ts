@@ -15,6 +15,7 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
   );
 
   const isPublicRoute = createRouteMatcher([
+    "/",
     "/sign-in(.*)",
     "/sign-up(.*)",
     "/api/webhooks(.*)",
