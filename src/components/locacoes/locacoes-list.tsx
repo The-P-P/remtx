@@ -28,9 +28,11 @@ export function LocacoesList({ locacoes }: { locacoes: LocacaoItem[] }) {
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <LocacaoStatusBadge status={l.status} />
-                <span className="font-mono font-semibold">{l.veiculo.placa}</span>
+                <span className="rounded-md bg-muted/60 px-2 py-0.5 font-mono text-xs font-semibold">
+                  {l.veiculo.placa}
+                </span>
               </div>
-              <p className="text-sm">
+              <p className="text-sm leading-6">
                 <strong>{l.cliente.nome}</strong> · {l.veiculo.marca}{" "}
                 {l.veiculo.modelo}
               </p>

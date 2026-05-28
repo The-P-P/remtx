@@ -4,6 +4,7 @@ import { ptBR } from "@clerk/localizations";
 import { Geist, Geist_Mono } from "next/font/google";
 import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { RouteTransition } from "@/components/layout/route-transition";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/themes";
 import "./globals.css";
 
@@ -37,7 +38,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <RouteTransition>{children}</RouteTransition>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -25,12 +25,12 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
       {veiculos.map((v) => (
         <Card
           key={v.id}
-          className={v.status === "INATIVO" ? "opacity-60" : undefined}
+          className={v.status === "INATIVO" ? "opacity-65" : undefined}
         >
           <CardContent className="space-y-3 p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-mono text-lg font-bold">{v.placa}</p>
+                <p className="font-mono text-lg font-bold tracking-wide">{v.placa}</p>
                 {v.apelido && (
                   <p className="text-sm font-medium text-primary">{v.apelido}</p>
                 )}
@@ -38,7 +38,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                   {v.marca} {v.modelo} ({v.ano})
                 </p>
               </div>
-              <div className="flex shrink-0 gap-0.5">
+              <div className="flex shrink-0 gap-1">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -82,7 +82,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
               )}
             </div>
 
-            <dl className="grid grid-cols-2 gap-2 text-sm">
+            <dl className="grid grid-cols-2 gap-2 text-sm rounded-xl border border-border/60 bg-muted/25 p-2.5">
               <div>
                 <dt className="text-xs text-muted-foreground">Km atual</dt>
                 <dd className="font-medium">{formatKm(v.kmAtual)}</dd>
@@ -101,22 +101,22 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
               )}
             </dl>
 
-              <div className="flex flex-wrap gap-2 text-xs">
+              <div className="flex flex-wrap gap-3 border-t border-border/60 pt-2 text-xs">
                 {v._count.problemasCronicos > 0 && (
-                  <span className="text-red-600 dark:text-red-300">
+                  <span className="font-medium text-red-600 dark:text-red-300">
                     {v._count.problemasCronicos} problema(s)
                   </span>
                 )}
                 <Link
                   href={`/manutencoes?veiculoId=${v.id}`}
-                  className="text-primary hover:underline"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
                 >
                   Manutenções
                 </Link>
                 {v.locacoes[0] && (
                   <Link
                     href={`/locacoes/${v.locacoes[0].id}`}
-                    className="text-primary hover:underline"
+                    className="font-medium text-primary underline-offset-2 hover:underline"
                   >
                     Locação
                   </Link>
@@ -124,7 +124,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 {v.status === "DISPONIVEL" && (
                   <Link
                     href={`/clientes/locacoes/nova?veiculoId=${v.id}`}
-                    className="text-primary hover:underline"
+                    className="font-medium text-primary underline-offset-2 hover:underline"
                   >
                     Alugar
                   </Link>

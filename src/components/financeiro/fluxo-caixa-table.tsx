@@ -60,7 +60,7 @@ export function FluxoCaixaTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm">
         <span className="px-2 text-xs text-muted-foreground">Visualização:</span>
         <Button
           variant={granularidade === "mensal" ? "secondary" : "ghost"}
@@ -85,7 +85,7 @@ export function FluxoCaixaTable({
         </Button>
       </div>
 
-      <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-2 py-1">
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-card/80 px-2 py-1 shadow-sm">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -112,7 +112,7 @@ export function FluxoCaixaTable({
         </Button>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle className="text-base">
             Resumo anual ({labelGranularidade})
@@ -142,11 +142,11 @@ export function FluxoCaixaTable({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardContent className="p-0 overflow-x-auto max-h-[65vh]" ref={tabelaRef}>
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="border-b bg-muted/40 text-left">
+              <tr className="border-b bg-muted/45 text-left">
                 <th className="px-4 py-3 font-medium">Período</th>
                 <th className="px-4 py-3 font-medium text-emerald-700 dark:text-emerald-500">
                   Entradas
@@ -165,7 +165,7 @@ export function FluxoCaixaTable({
                 <tr
                   key={p.chave}
                   data-periodo={p.chave}
-                  className={`border-b last:border-0 ${isAtual ? "bg-blue-50/70 dark:bg-blue-500/10" : ""}`}
+                  className={`border-b last:border-0 transition-colors ${isAtual ? "bg-blue-50/75 dark:bg-blue-500/10" : "hover:bg-muted/35"}`}
                 >
                   <td className="px-4 py-3 font-medium capitalize">
                     {granularidade === "mensal"
@@ -192,7 +192,7 @@ export function FluxoCaixaTable({
                           ? `/financeiro?ano=${ano}&mes=${p.inicio.getMonth() + 1}`
                           : `/financeiro?de=${format(p.inicio, "yyyy-MM-dd")}&ate=${format(p.fim, "yyyy-MM-dd")}`
                       }
-                      className="text-xs text-primary underline"
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
                     >
                       Ver
                     </Link>

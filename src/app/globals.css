@@ -9,50 +9,50 @@
 /* --- Claro (padrão) --- */
 :root,
 [data-theme="light"] {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.982 0.008 248);
+  --foreground: oklch(0.19 0.018 252);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.19 0.018 252);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.45 0.15 250);
+  --popover-foreground: oklch(0.19 0.018 252);
+  --primary: oklch(0.56 0.2 264);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.25 0.05 250);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.96 0.01 250);
-  --accent-foreground: oklch(0.25 0.05 250);
+  --secondary: oklch(0.95 0.018 250);
+  --secondary-foreground: oklch(0.31 0.05 252);
+  --muted: oklch(0.965 0.012 250);
+  --muted-foreground: oklch(0.49 0.025 255);
+  --accent: oklch(0.95 0.03 280);
+  --accent-foreground: oklch(0.32 0.08 270);
   --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.45 0.15 250);
-  --radius: 0.5rem;
+  --border: oklch(0.9 0.015 255);
+  --input: oklch(0.92 0.014 255);
+  --ring: oklch(0.6 0.19 268);
+  --radius: 0.75rem;
 }
 
 /* --- Escuro --- */
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: oklch(0.17 0.012 260);
-  --foreground: oklch(0.98 0.004 260);
-  --card: oklch(0.21 0.014 260);
+  --background: oklch(0.2 0.02 262);
+  --foreground: oklch(0.985 0.008 265);
+  --card: oklch(0.24 0.022 262);
   --card-foreground: oklch(0.98 0.004 260);
-  --popover: oklch(0.21 0.014 260);
+  --popover: oklch(0.24 0.022 262);
   --popover-foreground: oklch(0.98 0.004 260);
-  --primary: oklch(0.72 0.12 250);
-  --primary-foreground: oklch(0.14 0.02 260);
-  --secondary: oklch(0.28 0.02 260);
+  --primary: oklch(0.78 0.15 275);
+  --primary-foreground: oklch(0.17 0.03 262);
+  --secondary: oklch(0.31 0.03 262);
   --secondary-foreground: oklch(0.94 0.008 260);
-  --muted: oklch(0.28 0.02 260);
-  --muted-foreground: oklch(0.82 0.015 260);
-  --accent: oklch(0.3 0.025 260);
+  --muted: oklch(0.29 0.025 262);
+  --muted-foreground: oklch(0.84 0.02 264);
+  --accent: oklch(0.34 0.05 285);
   --accent-foreground: oklch(0.96 0.008 260);
   --destructive: oklch(0.65 0.2 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.38 0.02 260);
-  --input: oklch(0.3 0.02 260);
-  --ring: oklch(0.72 0.12 250);
+  --border: oklch(0.4 0.03 262);
+  --input: oklch(0.32 0.03 262);
+  --ring: oklch(0.78 0.15 275);
 }
 
 /* --- Drácula (azul escuro) --- */
@@ -134,6 +134,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  background-image:
+    radial-gradient(circle at 8% -10%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 36%),
+    radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 34%);
+  background-attachment: fixed;
 }
 
 /* Transição suave ao trocar tema */
@@ -141,4 +145,140 @@ html {
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
+}
+
+* {
+  border-color: var(--border);
+}
+
+a,
+button {
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 180ms ease;
+}
+
+@keyframes routeEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.992);
+    filter: blur(3px);
+  }
+  45% {
+    opacity: 0.88;
+    transform: translateY(4px) scale(0.997);
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes routeProgress {
+  0% {
+    transform: scaleX(0.05);
+    opacity: 0.7;
+  }
+  55% {
+    transform: scaleX(0.72);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.animate-route-enter {
+  animation: routeEnter 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-route-progress {
+  animation: routeProgress 760ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-route-enter,
+  .animate-route-progress {
+    animation: none !important;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--background) 88%, var(--foreground) 12%);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--primary) 55%, var(--background) 45%);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--primary) 72%, var(--background) 28%);
+  background-clip: content-box;
+}
+
+/* Native controls polish (lightweight, cross-system) */
+select:not([multiple]):not([size]),
+input[type="date"][data-slot="input"] {
+  border-radius: var(--radius);
+  border-color: var(--input);
+  background-color: color-mix(in oklab, var(--background) 85%, var(--card) 15%);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, color-mix(in oklab, var(--foreground) 55%, transparent) 50%),
+    linear-gradient(135deg, color-mix(in oklab, var(--foreground) 55%, transparent) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+select:focus-visible,
+input[type="date"][data-slot="input"]:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--ring) 35%, transparent),
+    0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+input[type="date"][data-slot="input"]::-webkit-calendar-picker-indicator {
+  border-radius: 6px;
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+input[type="date"][data-slot="input"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }

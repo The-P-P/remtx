@@ -42,8 +42,10 @@ export function FinanceiroSection({
           ) : undefined
         }
       />
-      <FinanceiroNav action={navAction} />
-      {children}
+      <div className="rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm">
+        <FinanceiroNav action={navAction} />
+      </div>
+      <div className="space-y-4">{children}</div>
     </div>
   );
 }
