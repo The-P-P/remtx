@@ -1,5 +1,10 @@
 import { startOfDay } from "date-fns";
+import { criarLancamentosFaltantesPagamentos } from "@/lib/financeiro-sync-parcelas";
 import { prisma } from "@/lib/prisma";
+import {
+  corrigirVencimentosDeslocadosPorTimezone,
+  removerParcelasPendentesDuplicadas,
+} from "@/lib/parcelas-semanais";
 import {
   calcularJurosParcela,
   valorTotalParcela,
@@ -68,5 +73,8 @@ export async function normalizarParcelasLegadas() {
 
 export async function prepararParcelasParaAgenda() {
   await normalizarParcelasLegadas();
+  await corrigirVencimentosDeslocadosPorTimezone();
+  await removerParcelasPendentesDuplicadas();
+  await criarLancamentosFaltantesPagamentos();
   await atualizarJurosParcelasPendentes();
 }

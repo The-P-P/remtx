@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { kmMinZero } from "@/lib/validations/km";
+import { currencyMinZero } from "@/lib/validations/currency";
 import { PORTE_VEICULO_VALUES } from "@/lib/porte-veiculo";
 
 export const veiculoSchema = z.object({
@@ -21,6 +22,13 @@ export const veiculoSchema = z.object({
   ano: z.coerce.number().int().min(1990).max(new Date().getFullYear() + 1),
   cor: z.string().optional(),
   porte: z.enum(PORTE_VEICULO_VALUES),
+  valorCompra: currencyMinZero().transform((v) =>
+    v != null && v > 0 ? v : null
+  ),
+  dataCompra: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? new Date(v + "T12:00:00") : null)),
   kmAtual: kmMinZero(),
   kmProximaRevisao: kmMinZero(),
   status: z.enum(["DISPONIVEL", "ALUGADO", "EM_MANUTENCAO", "INATIVO"]),

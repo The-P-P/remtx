@@ -11,6 +11,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
+import { formatCurrency } from "@/lib/utils";
 import type { FormAction, FormState } from "@/types/form";
 
 const selectClass =
@@ -53,6 +54,8 @@ export function LocacaoForm({
   const hoje = format(new Date(), "yyyy-MM-dd");
   const [veiculoId, setVeiculoId] = useState(veiculoIdPreselect ?? "");
   const [prazoIndeterminado, setPrazoIndeterminado] = useState(false);
+  const [cobrarCaucao, setCobrarCaucao] = useState(true);
+  const [valorSemanal, setValorSemanal] = useState(0);
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
@@ -179,8 +182,47 @@ export function LocacaoForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="valorDiaria">Valor semanal *</Label>
-          <CurrencyInput id="valorDiaria" name="valorDiaria" required />
+          <CurrencyInput
+            id="valorDiaria"
+            name="valorDiaria"
+            required
+            onValueChange={(v) => setValorSemanal(v ?? 0)}
+          />
         </div>
+      </div>
+
+      <div className="rounded-lg border bg-sky-500/10 border-sky-500/30 p-4 space-y-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="cobrarCaucao"
+            className="size-4 rounded"
+            checked={cobrarCaucao}
+            onChange={(e) => setCobrarCaucao(e.target.checked)}
+          />
+          Cobrar caução na retirada (igual ao valor de 1 semana)
+        </label>
+        <p className="text-sm text-muted-foreground">
+          Na retirada do veículo o cliente paga a{" "}
+          <strong>1ª semana</strong>
+          {cobrarCaucao && valorSemanal > 0 ? (
+            <>
+              {" "}
+              + <strong>caução</strong> (depósito reembolsável):
+            </>
+          ) : (
+            "."
+          )}
+        </p>
+        {cobrarCaucao && valorSemanal > 0 && (
+          <p className="text-lg font-bold tabular-nums text-sky-900 dark:text-sky-200">
+            Total na retirada: {formatCurrency(valorSemanal * 2)}
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({formatCurrency(valorSemanal)} semana + {formatCurrency(valorSemanal)}{" "}
+              caução)
+            </span>
+          </p>
+        )}
       </div>
 
       <label className="flex items-center gap-2 text-sm">

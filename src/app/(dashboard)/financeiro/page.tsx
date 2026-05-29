@@ -15,6 +15,7 @@ import { FinanceiroFiltrosSheet } from "@/components/financeiro/financeiro-filtr
 import { TransacoesList } from "@/components/financeiro/transacoes-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { financeiroQuery } from "@/lib/financeiro-periodo";
+import { criarLancamentosFaltantesPagamentos } from "@/lib/financeiro-sync-parcelas";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -53,6 +54,8 @@ export default async function FinanceiroPage({
     categoriaId: params.categoriaId,
     q: params.q,
   };
+
+  await criarLancamentosFaltantesPagamentos();
 
   const [resumoFinal, transacoes, categorias, resumoCategorias] =
     await Promise.all([

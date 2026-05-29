@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseCurrencyInput } from "@/lib/utils";
+import { parseCurrencyInput, parseDateInput } from "@/lib/utils";
 
 const tiposManuais = [
   "ENTREGA_VEICULO",
@@ -14,11 +14,11 @@ const tiposManuais = [
 export const eventoAgendaSchema = z.object({
   titulo: z.string().min(2, "Título obrigatório"),
   descricao: z.string().optional(),
-  dataInicio: z.coerce.date({ message: "Data inválida" }),
+  dataInicio: z.union([z.string(), z.date()]).transform((v) => parseDateInput(v)),
   dataFim: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 0 ? new Date(v + "T12:00:00") : undefined)),
+    .transform((v) => (v && v.length > 0 ? parseDateInput(v) : undefined)),
   tipo: z.enum(tiposManuais),
   valor: z
     .string()

@@ -70,7 +70,13 @@ export function parsePeriodoFinanceiro(params: {
       : agora.getMonth() + 1;
   const inicio = startOfMonth(new Date(ano, mes - 1, 1));
   const fim = endOfMonth(inicio);
-  return { ano, mes, inicio, fim, modo: "mes" };
+  return {
+    ano,
+    mes,
+    inicio: startOfDay(inicio),
+    fim: endOfDay(fim),
+    modo: "mes",
+  };
 }
 
 export function financeiroQuery(

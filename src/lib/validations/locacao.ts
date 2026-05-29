@@ -3,8 +3,11 @@ import {
   currencyPositive,
 } from "@/lib/validations/currency";
 import { kmMinZero } from "@/lib/validations/km";
+import { parseDateInput } from "@/lib/utils";
 
-const dateField = z.coerce.date({ message: "Data inválida" });
+const dateField = z
+  .union([z.string(), z.date()])
+  .transform((v) => parseDateInput(v));
 
 const prazoIndeterminadoField = z
   .string()
@@ -15,7 +18,7 @@ const dataFimPrevistaOpcional = z
   .string()
   .optional()
   .transform((v) =>
-    v && v.length > 0 ? new Date(v + "T12:00:00") : undefined
+    v && v.length > 0 ? parseDateInput(v) : undefined
   );
 
 export const locacaoCreateSchema = z
@@ -30,6 +33,10 @@ export const locacaoCreateSchema = z
     status: z.enum(["RESERVADA", "ATIVA"]).default("RESERVADA"),
     observacoes: z.string().optional(),
     iniciarAgora: z
+      .string()
+      .optional()
+      .transform((v) => v === "on" || v === "true"),
+    cobrarCaucao: z
       .string()
       .optional()
       .transform((v) => v === "on" || v === "true"),

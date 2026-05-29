@@ -13,10 +13,11 @@ import {
   LocacaoAcoes,
   ParcelaPagarButton,
 } from "@/components/locacoes/locacao-acoes";
-import { formatCurrency, formatKm } from "@/lib/utils";
+import { formatCurrency, formatKm, parseDateInput } from "@/lib/utils";
 import { labelDataFimPrevista } from "@/lib/format/locacao";
 import { formatTelefoneDisplay } from "@/lib/format/br";
 import { nomeDiaSemana } from "@/lib/parcelas-semanais";
+import { resumoCaucaoLocacao } from "@/lib/caucao-locacao";
 
 export default async function LocacaoDetalhePage({
   params,
@@ -28,6 +29,8 @@ export default async function LocacaoDetalhePage({
   if (!locacao) notFound();
 
   const podeEditar = ["RESERVADA", "ATIVA"].includes(locacao.status);
+  const dataInicio = parseDateInput(locacao.dataInicio);
+  const caucao = resumoCaucaoLocacao(locacao);
 
   return (
     <div className="space-y-6">
@@ -63,7 +66,7 @@ export default async function LocacaoDetalhePage({
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Período</p>
             <p className="mt-2 text-sm font-medium">
-              {format(locacao.dataInicio, "dd/MM/yyyy", { locale: ptBR })} →{" "}
+              {format(dataInicio, "dd/MM/yyyy", { locale: ptBR })} →{" "}
               {labelDataFimPrevista(locacao.dataFimPrevista)}
             </p>
           </CardContent>
@@ -134,6 +137,37 @@ export default async function LocacaoDetalhePage({
         kmAtualVeiculo={locacao.veiculo.kmAtual}
       />
 
+      {caucao.valorCaucao > 0 && ["RESERVADA", "ATIVA"].includes(locacao.status) && (
+        <Card className="border-sky-500/30 bg-sky-500/5">
+          <CardHeader>
+            <CardTitle className="text-base">Caução na retirada</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              Na retirada o cliente paga{" "}
+              <strong>{formatCurrency(caucao.totalRetirada)}</strong>:{" "}
+              {formatCurrency(caucao.valorSemanal)} (1ª semana) +{" "}
+              {formatCurrency(caucao.valorCaucao)} (caução, reembolsável na
+              devolução).
+            </p>
+            <p className="text-muted-foreground">
+              Status da caução:{" "}
+              {caucao.paga ? (
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  Recebida
+                  {caucao.dataPagamento &&
+                    ` em ${format(caucao.dataPagamento, "dd/MM/yyyy", { locale: ptBR })}`}
+                </span>
+              ) : (
+                <span className="text-amber-700 dark:text-amber-300">
+                  Pendente
+                </span>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {["RESERVADA", "ATIVA"].includes(locacao.status) && (
         <Card>
           <CardHeader>
@@ -143,12 +177,19 @@ export default async function LocacaoDetalhePage({
             {locacao.status === "RESERVADA" ? (
               <p className="text-sm text-muted-foreground">
                 Ao confirmar a retirada, serão gerados pagamentos toda{" "}
-                <strong>{nomeDiaSemana(locacao.dataInicio)}</strong> até a data
+                <strong>{nomeDiaSemana(dataInicio)}</strong> até a data
                 de devolução prevista.
+                {caucao.valorCaucao > 0 && (
+                  <>
+                    {" "}
+                    A caução de {formatCurrency(caucao.valorCaucao)} entra no
+                    recebimento do dia da retirada junto com a 1ª semana.
+                  </>
+                )}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Vencimento toda <strong>{nomeDiaSemana(locacao.dataInicio)}</strong>{" "}
+                Vencimento toda <strong>{nomeDiaSemana(dataInicio)}</strong>{" "}
                 — {formatCurrency(Number(locacao.valorDiaria))}/semana. Confirme
                 pagamentos e juros na{" "}
                 <Link href="/locacoes" className="underline">

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { KmInput } from "@/components/ui/km-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { format } from "date-fns";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
 import type { StatusVeiculo, PorteVeiculo } from "@/types/prisma";
@@ -36,6 +37,8 @@ type VeiculoFormProps = {
     status: StatusVeiculo;
     observacoes?: string | null;
     ipvaVencimento?: Date | null;
+    valorCompra?: unknown;
+    dataCompra?: Date | null;
   };
   submitLabel: string;
   cancelHref: string;
@@ -146,6 +149,40 @@ export function VeiculoForm({
             defaultValue={initial?.kmProximaRevisao}
             required
           />
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+        <p className="text-sm font-medium">Aquisição do veículo</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="valorCompra">Valor de compra</Label>
+            <CurrencyInput
+              id="valorCompra"
+              name="valorCompra"
+              defaultValue={
+                initial?.valorCompra != null
+                  ? Number(initial.valorCompra)
+                  : undefined
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor total pago na aquisição (à vista ou referência do veículo).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dataCompra">Data da compra</Label>
+            <Input
+              id="dataCompra"
+              name="dataCompra"
+              type="date"
+              defaultValue={
+                initial?.dataCompra
+                  ? format(initial.dataCompra, "yyyy-MM-dd")
+                  : ""
+              }
+            />
+          </div>
         </div>
       </div>
 

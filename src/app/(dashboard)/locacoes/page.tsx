@@ -52,6 +52,7 @@ export default async function AgendaPage({
           ...e.meta,
           dataVencimentoContrato: e.meta.dataVencimentoContrato
             ?.toISOString(),
+          dataPagamento: e.meta.dataPagamento?.toISOString(),
         }
       : undefined,
   }));

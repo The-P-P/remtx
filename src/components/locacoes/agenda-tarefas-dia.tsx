@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Check,
   CalendarClock,
@@ -32,7 +33,10 @@ import {
   desfazerTarefaAgenda,
   reagendarTarefaAgenda,
   confirmarPagamentoParcela,
+  confirmarCaucaoLocacao,
+  confirmarRecebimentoRetirada,
   ajustarPagamentoParcela,
+  type ConfirmacaoPagamentoInput,
 } from "@/lib/actions/agenda-tarefas";
 import { confirmarPagamentoParcelaFinanciamento } from "@/lib/actions/financiamento-veiculo";
 import {
@@ -50,7 +54,14 @@ type ClienteOption = { id: string; nome: string };
 export type TarefaAgendaSerializada = {
   id: string;
   chave: string;
-  referenciaTipo: "parcela" | "evento" | "agenda" | "financiamento" | "transacao" | "manutencao";
+  referenciaTipo:
+    | "parcela"
+    | "evento"
+    | "agenda"
+    | "financiamento"
+    | "transacao"
+    | "manutencao"
+    | "locacao";
   referenciaId: string;
   titulo: string;
   descricao?: string | null;
@@ -69,10 +80,15 @@ export type TarefaAgendaSerializada = {
     dataVencimentoContrato?: string;
     diaSemanaContrato?: string;
     pagamentoReagendado?: boolean;
+    dataPagamento?: string;
     veiculoId?: string;
     clienteId?: string;
     parcelaNumero?: number;
     totalParcelas?: number;
+    locacaoId?: string;
+    clienteNome?: string;
+    valorCaucao?: number;
+    totalRetirada?: number;
   };
 };
 
@@ -80,6 +96,7 @@ type DialogMode =
   | "reagendar"
   | "ajustar"
   | "confirmar"
+  | "recebimento-retirada"
   | "nova-tarefa"
   | "editar-tarefa"
   | null;
@@ -144,12 +161,68 @@ export function AgendaTarefasDia({
     setErro(null);
   }
 
+  function buildConfirmacaoInput(
+    form: HTMLFormElement
+  ): ConfirmacaoPagamentoInput {
+    const cb = form.elements.namedItem(
+      "registrarFinanceiro"
+    ) as HTMLInputElement | null;
+    const forma = form.elements.namedItem(
+      "formaPagamento"
+    ) as HTMLSelectElement | null;
+    return {
+      registrarFinanceiro: cb?.checked !== false,
+      formaPagamento: forma?.value || null,
+      dataRecebimento: dataPadrao,
+    };
+  }
+
   const isPagamentoCliente = (tipo: TipoEventoAgenda) =>
     tipo === "PAGAMENTO_CLIENTE";
+  const isCaucaoLocacao = (tipo: TipoEventoAgenda) => tipo === "CAUCAO_LOCACAO";
   const isPagamentoFinanciamento = (tipo: TipoEventoAgenda) =>
     tipo === "FINANCIAMENTO_VEICULO";
   const isPagamentoTipo = (tipo: TipoEventoAgenda) =>
-    isPagamentoCliente(tipo) || isPagamentoFinanciamento(tipo);
+    isPagamentoCliente(tipo) ||
+    isCaucaoLocacao(tipo) ||
+    isPagamentoFinanciamento(tipo);
+
+  const retiradasPendentes = useMemo(() => {
+    const map = new Map<
+      string,
+      { caucao?: TarefaAgendaSerializada; parcela?: TarefaAgendaSerializada }
+    >();
+
+    for (const t of tarefas) {
+      const locId =
+        t.meta?.locacaoId ??
+        (t.chave.startsWith("caucao-") ? t.referenciaId : undefined);
+      if (!locId) continue;
+
+      const entry = map.get(locId) ?? {};
+      if (isCaucaoLocacao(t.tipo) && !t.meta?.concluido) {
+        entry.caucao = t;
+      }
+      if (isPagamentoCliente(t.tipo) && !t.meta?.concluido && !entry.parcela) {
+        entry.parcela = t;
+      }
+      map.set(locId, entry);
+    }
+
+    return [...map.entries()]
+      .filter(([, v]) => v.caucao && v.parcela)
+      .map(([locacaoId, v]) => ({
+        locacaoId,
+        caucao: v.caucao,
+        parcela: v.parcela,
+        total:
+          (v.caucao?.meta?.valor ?? 0) + (v.parcela?.meta?.valor ?? 0),
+        label:
+          v.caucao?.meta?.clienteNome ??
+          v.parcela?.meta?.clienteNome ??
+          "Cliente",
+      }));
+  }, [tarefas]);
   const isEventoManual = (t: TarefaAgendaSerializada) =>
     t.referenciaTipo === "evento";
 
@@ -198,6 +271,45 @@ export function AgendaTarefasDia({
       </div>
       {erro && !dialog && (
         <p className="text-sm text-red-600 dark:text-red-400">{erro}</p>
+      )}
+
+      {retiradasPendentes.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3">
+          <p className="text-sm font-medium text-sky-900 dark:text-sky-200">
+            Recebimento na retirada (1ª semana + caução)
+          </p>
+          {retiradasPendentes.map((r) => (
+            <div
+              key={r.locacaoId}
+              className="flex flex-wrap items-center justify-between gap-2"
+            >
+              <p className="text-sm text-muted-foreground">
+                {r.label} — {formatCurrency(r.total)}
+              </p>
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  setTarefaAtiva({
+                    id: `retirada-${r.locacaoId}`,
+                    chave: `caucao-${r.locacaoId}`,
+                    referenciaTipo: "locacao",
+                    referenciaId: r.locacaoId,
+                    titulo: r.label,
+                    dataInicio: dataPadrao,
+                    tipo: "CAUCAO_LOCACAO",
+                    meta: { valor: r.total, locacaoId: r.locacaoId },
+                  });
+                  setDialog("recebimento-retirada");
+                  setErro(null);
+                }}
+              >
+                <Banknote className="size-3.5" />
+                Receber tudo
+              </Button>
+            </div>
+          ))}
+        </div>
       )}
 
       {tarefas.length === 0 && (
@@ -269,6 +381,14 @@ export function AgendaTarefasDia({
                     {t.meta.pagamentoAjustado && (
                       <p className="text-xs text-muted-foreground">
                         Pagamento registrado com ajuste manual
+                      </p>
+                    )}
+                    {concluido && t.meta.dataPagamento && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        Pago em{" "}
+                        {format(new Date(t.meta.dataPagamento), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </p>
                     )}
                   </div>
@@ -436,7 +556,11 @@ export function AgendaTarefasDia({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {dialog === "confirmar" && "Confirmar pagamento"}
+              {dialog === "confirmar" &&
+                (tarefaAtiva && isCaucaoLocacao(tarefaAtiva.tipo)
+                  ? "Confirmar caução"
+                  : "Confirmar pagamento")}
+              {dialog === "recebimento-retirada" && "Receber na retirada"}
               {dialog === "reagendar" && "Reagendar tarefa"}
               {dialog === "ajustar" && "Ajustar pagamento (check esquecido)"}
               {dialog === "nova-tarefa" && "Nova tarefa neste dia"}
@@ -448,22 +572,78 @@ export function AgendaTarefasDia({
             <p className="text-sm text-red-600 dark:text-red-400">{erro}</p>
           )}
 
+          {dialog === "recebimento-retirada" && tarefaAtiva && (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = buildConfirmacaoInput(e.currentTarget);
+                run(() =>
+                  confirmarRecebimentoRetirada(tarefaAtiva.referenciaId, input)
+                );
+              }}
+            >
+              <p className="text-sm text-muted-foreground">
+                Confirma o recebimento da{" "}
+                <strong>1ª semana + caução</strong> de{" "}
+                <strong>{tarefaAtiva.titulo}</strong> (
+                {formatCurrency(tarefaAtiva.meta?.valor ?? 0)}).
+              </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="registrarFinanceiro"
+                  defaultChecked
+                  className="size-4 rounded"
+                />
+                Registrar entradas no financeiro (caução e locação)
+              </label>
+              <div className="space-y-2">
+                <Label htmlFor="formaPagamentoRetirada">Forma de pagamento</Label>
+                <select
+                  id="formaPagamentoRetirada"
+                  name="formaPagamento"
+                  defaultValue="PIX"
+                  className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
+                >
+                  <option value="">Não informado</option>
+                  <option value="PIX">PIX</option>
+                  <option value="DINHEIRO">Dinheiro</option>
+                  <option value="CARTAO_DEBITO">Cartão débito</option>
+                  <option value="CARTAO_CREDITO">Cartão crédito</option>
+                  <option value="TRANSFERENCIA">Transferência</option>
+                  <option value="BOLETO">Boleto</option>
+                  <option value="OUTRO">Outro</option>
+                </select>
+              </div>
+              <Button type="submit" disabled={pending} className="w-full">
+                {pending ? "Salvando..." : "Confirmar recebimento"}
+              </Button>
+            </form>
+          )}
+
           {dialog === "confirmar" && tarefaAtiva && (
             <form
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                const fd = new FormData(e.currentTarget);
+                const input = buildConfirmacaoInput(e.currentTarget);
                 if (isPagamentoFinanciamento(tarefaAtiva.tipo)) {
+                  const fd = new FormData(e.currentTarget);
+                  fd.set("dataRecebimento", dataPadrao);
                   run(() =>
                     confirmarPagamentoParcelaFinanciamento(
                       tarefaAtiva.referenciaId,
                       fd
                     )
                   );
+                } else if (isCaucaoLocacao(tarefaAtiva.tipo)) {
+                  run(() =>
+                    confirmarCaucaoLocacao(tarefaAtiva.referenciaId, input)
+                  );
                 } else {
                   run(() =>
-                    confirmarPagamentoParcela(tarefaAtiva.referenciaId, fd)
+                    confirmarPagamentoParcela(tarefaAtiva.referenciaId, input)
                   );
                 }
               }}
@@ -471,7 +651,9 @@ export function AgendaTarefasDia({
               <p className="text-sm text-muted-foreground">
                 {isPagamentoFinanciamento(tarefaAtiva.tipo)
                   ? "Valor a pagar"
-                  : "Valor a receber"}
+                  : isCaucaoLocacao(tarefaAtiva.tipo)
+                    ? "Caução a receber"
+                    : "Valor a receber"}
                 :{" "}
                 <strong>{formatCurrency(tarefaAtiva.meta?.valor ?? 0)}</strong>
               </p>
@@ -484,8 +666,13 @@ export function AgendaTarefasDia({
                 />
                 {isPagamentoFinanciamento(tarefaAtiva.tipo)
                   ? "Registrar saída no financeiro"
-                  : "Registrar entrada no financeiro"}
+                  : isCaucaoLocacao(tarefaAtiva.tipo)
+                    ? "Registrar caução no financeiro"
+                    : "Registrar entrada no financeiro"}
               </label>
+              <p className="text-xs text-muted-foreground">
+                Deixe marcado para lançar automaticamente em Financeiro.
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="formaPagamentoConfirmar">Forma de pagamento</Label>
                 <select

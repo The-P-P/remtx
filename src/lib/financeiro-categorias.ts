@@ -54,6 +54,7 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
 
 /** Nome fixo usado nos pagamentos de locação (agenda). */
 export const CATEGORIA_LOCACAO_NOME = "Locação de veículos";
+export const CATEGORIA_CAUCAO_NOME = "Caução e depósitos";
 export const CATEGORIA_MANUTENCAO_NOME = "Manutenção de frota";
 export const CATEGORIA_FINANCIAMENTO_NOME = "Parcela de financiamento";
 
@@ -89,6 +90,17 @@ export async function getCategoriaManutencaoFrota(
   return (
     categorias.find((c) => c.nome === CATEGORIA_MANUTENCAO_NOME) ??
     categorias.find((c) => c.tipo === "SAIDA") ??
+    categorias[0]
+  );
+}
+
+export async function getCategoriaCaucao(
+  client: Tx | typeof prisma = prisma
+) {
+  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  return (
+    categorias.find((c) => c.nome === CATEGORIA_CAUCAO_NOME) ??
+    categorias.find((c) => c.tipo === "ENTRADA") ??
     categorias[0]
   );
 }

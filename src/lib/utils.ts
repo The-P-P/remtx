@@ -103,16 +103,46 @@ export function resolveDigitsAfterMaskedInput(
   return nextDigits;
 }
 
+function isUtcMidnight(date: Date): boolean {
+  return (
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  );
+}
+
+/** Data civil yyyy-MM-dd ao meio-dia local (evita deslocar um dia por UTC). */
+export function dateFromYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return startOfDay(new Date(y, m - 1, d, 12, 0, 0, 0));
+}
+
 /** Interpreta yyyy-MM-dd (ou Date) como data local, sem deslocar um dia por UTC. */
 export function parseDateInput(value: string | Date): Date {
   if (value instanceof Date) {
+    if (isUtcMidnight(value)) {
+      const y = value.getUTCFullYear();
+      const m = String(value.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(value.getUTCDate()).padStart(2, "0");
+      return dateFromYmd(`${y}-${m}-${d}`);
+    }
     return startOfDay(value);
   }
 
   const trimmed = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return startOfDay(new Date(`${trimmed}T12:00:00`));
+    return dateFromYmd(trimmed);
   }
 
   return startOfDay(new Date(trimmed));
+}
+
+/** Chave yyyy-MM-dd em horário local para comparar vencimentos. */
+export function dateKey(value: string | Date): string {
+  const d = parseDateInput(value);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

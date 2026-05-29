@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { parseDateInput } from "@/lib/utils";
+import { dadosCaucaoCreate } from "@/lib/caucao-locacao";
 import {
   calcularValorTotalSemanal,
   encerrarParcelasAposDevolucao,
@@ -142,6 +144,7 @@ export async function createLocacao(
       status: formData.get("status") || "RESERVADA",
       observacoes: formData.get("observacoes") || undefined,
       iniciarAgora: formData.get("iniciarAgora"),
+      cobrarCaucao: formData.get("cobrarCaucao") || undefined,
     });
 
     if (!parsed.success) {
@@ -173,17 +176,23 @@ export async function createLocacao(
         data: {
           veiculoId: parsed.data.veiculoId,
           clienteId: parsed.data.clienteId,
-          dataInicio: parsed.data.dataInicio,
-          dataFimPrevista: parsed.data.dataFimPrevista,
+          dataInicio: parseDateInput(parsed.data.dataInicio),
+          dataFimPrevista: parsed.data.dataFimPrevista
+            ? parseDateInput(parsed.data.dataFimPrevista)
+            : null,
           kmInicio: parsed.data.kmInicio,
           valorDiaria: parsed.data.valorDiaria,
+          ...dadosCaucaoCreate(
+            parsed.data.valorDiaria,
+            parsed.data.cobrarCaucao
+          ),
           status,
           observacoes: parsed.data.observacoes,
         },
       });
 
       if (status === "ATIVA") {
-        const dataRetirada = startOfDay(parsed.data.dataInicio);
+        const dataRetirada = parseDateInput(parsed.data.dataInicio);
         await tx.veiculo.update({
           where: { id: parsed.data.veiculoId },
           data: { status: "ALUGADO", kmAtual: parsed.data.kmInicio },
@@ -245,7 +254,8 @@ export async function updateLocacao(
 
     if (
       parsed.data.dataFimPrevista &&
-      parsed.data.dataFimPrevista < locacao.dataInicio
+      parsed.data.dataFimPrevista <
+        parseDateInput(locacao.dataInicio)
     ) {
       return {
         success: false,
@@ -267,7 +277,7 @@ export async function updateLocacao(
         await sincronizarParcelasSemanais(
           tx,
           id,
-          startOfDay(locacao.dataInicio),
+          parseDateInput(locacao.dataInicio),
           parsed.data.dataFimPrevista,
           parsed.data.valorDiaria
         );
@@ -304,7 +314,7 @@ export async function ativarLocacao(id: string): Promise<ActionResult> {
     await assertVeiculoDisponivelParaLocacao(locacao.veiculoId, "ATIVA", id);
 
     const kmInicio = Math.max(locacao.kmInicio, locacao.veiculo.kmAtual);
-    const dataRetirada = startOfDay(new Date());
+    const dataRetirada = parseDateInput(locacao.dataInicio);
 
     await prisma.$transaction(async (tx) => {
       await tx.locacao.update({
@@ -319,7 +329,9 @@ export async function ativarLocacao(id: string): Promise<ActionResult> {
         tx,
         id,
         dataRetirada,
-        locacao.dataFimPrevista,
+        locacao.dataFimPrevista
+          ? parseDateInput(locacao.dataFimPrevista)
+          : null,
         Number(locacao.valorDiaria)
       );
     });
@@ -384,8 +396,8 @@ export async function finalizarLocacao(
       };
     }
 
-    const dataRetirada = startOfDay(locacao.dataInicio);
-    const dataFimReal = startOfDay(parsed.data.dataFimReal);
+    const dataRetirada = parseDateInput(locacao.dataInicio);
+    const dataFimReal = parseDateInput(parsed.data.dataFimReal);
     const valorSemanal = Number(locacao.valorDiaria);
     const valorTotal = calcularValorTotalSemanal(
       dataRetirada,
@@ -496,11 +508,14 @@ export async function createParcela(
       };
     }
 
+    const dataVencimento = parseDateInput(parsed.data.dataVencimento);
     const parcela = await prisma.parcelaLocacao.create({
       data: {
         locacaoId: parsed.data.locacaoId,
         valor: parsed.data.valor,
-        dataVencimento: parsed.data.dataVencimento,
+        valorBase: parsed.data.valor,
+        dataVencimento,
+        dataVencimentoOriginal: dataVencimento,
         observacoes: parsed.data.observacoes,
       },
     });
@@ -519,7 +534,5 @@ export async function marcarParcelaPaga(id: string): Promise<ActionResult> {
   const { confirmarPagamentoParcela } = await import(
     "@/lib/actions/agenda-tarefas"
   );
-  const fd = new FormData();
-  fd.set("registrarFinanceiro", "false");
-  return confirmarPagamentoParcela(id, fd);
+  return confirmarPagamentoParcela(id, { registrarFinanceiro: false });
 }

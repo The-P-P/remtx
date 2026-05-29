@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { prepararParcelasParaAgenda } from "@/lib/parcelas-juros";
 import { nomeDiaSemana } from "@/lib/parcelas-semanais";
+import { dateKey, parseDateInput } from "@/lib/utils";
 import { calcularJurosParcela } from "@/lib/juros-parcela";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
@@ -17,7 +18,8 @@ export type ReferenciaAgenda =
   | "agenda"
   | "financiamento"
   | "transacao"
-  | "manutencao";
+  | "manutencao"
+  | "locacao";
 
 export type AgendaEvento = {
   id: string;
@@ -35,7 +37,10 @@ export type AgendaEvento = {
     clienteNome?: string;
     veiculoId?: string;
     clienteId?: string;
+    locacaoId?: string;
     valor?: number;
+    valorCaucao?: number;
+    totalRetirada?: number;
     valorBase?: number;
     valorJuros?: number;
     diasAtraso?: number;
@@ -47,6 +52,8 @@ export type AgendaEvento = {
     pagamentoReagendado?: boolean;
     parcelaNumero?: number;
     totalParcelas?: number;
+    dataPagamento?: Date;
+    ePrimeiraSemanaRetirada?: boolean;
   };
 };
 
@@ -145,6 +152,7 @@ function emitirEventoLocacao(
     meta: {
       placa: l.veiculo.placa,
       clienteNome: l.cliente.nome,
+      locacaoId: l.id,
       concluido: conclusao?.concluida ?? false,
     },
   };
@@ -310,10 +318,18 @@ export async function getEventosAgenda(
   const hoje = new Date();
 
   for (const l of locacoes) {
+    const dataInicioLoc = parseDateInput(l.dataInicio);
+    const dataFimPrevistaLoc = l.dataFimPrevista
+      ? parseDateInput(l.dataFimPrevista)
+      : null;
+    const dataFimRealLoc = l.dataFimReal
+      ? parseDateInput(l.dataFimReal)
+      : null;
+
     const evInicio = emitirEventoLocacao(
       l,
       "inicio",
-      l.dataInicio,
+      dataInicioLoc,
       "LOCACAO_INICIO",
       `Retirada — ${l.veiculo.placa}`,
       inicio,
@@ -322,11 +338,41 @@ export async function getEventosAgenda(
     );
     if (evInicio) eventos.push(evInicio);
 
-    if (l.dataFimPrevista) {
+    const valorCaucaoLoc = Number(l.valorCaucao);
+    if (
+      valorCaucaoLoc > 0 &&
+      !l.caucaoPaga &&
+      ["RESERVADA", "ATIVA"].includes(l.status) &&
+      dataNoIntervalo(dataInicioLoc, inicio, fim)
+    ) {
+      eventos.push({
+        id: `caucao-${l.id}`,
+        chave: `caucao-${l.id}`,
+        referenciaTipo: "locacao",
+        referenciaId: l.id,
+        titulo: `Caução — ${l.cliente.nome}`,
+        descricao: `${l.veiculo.placa} · depósito reembolsável na devolução`,
+        dataInicio: dataInicioLoc,
+        tipo: "CAUCAO_LOCACAO",
+        href: `/locacoes/${l.id}`,
+        meta: {
+          placa: l.veiculo.placa,
+          clienteNome: l.cliente.nome,
+          locacaoId: l.id,
+          valor: valorCaucaoLoc,
+          concluido: l.caucaoPaga,
+          dataPagamento: l.caucaoDataPagamento
+            ? parseDateInput(l.caucaoDataPagamento)
+            : undefined,
+        },
+      });
+    }
+
+    if (dataFimPrevistaLoc) {
       const evFimPrev = emitirEventoLocacao(
         l,
         "fim-prev",
-        l.dataFimPrevista,
+        dataFimPrevistaLoc,
         "LOCACAO_FIM_PREVISTO",
         `Devolução prevista — ${l.veiculo.placa}`,
         inicio,
@@ -336,11 +382,11 @@ export async function getEventosAgenda(
       if (evFimPrev) eventos.push(evFimPrev);
     }
 
-    if (l.dataFimReal) {
+    if (dataFimRealLoc) {
       const evFimReal = emitirEventoLocacao(
         l,
         "fim-real",
-        l.dataFimReal,
+        dataFimRealLoc,
         "LOCACAO_FIM_REAL",
         `Devolução — ${l.veiculo.placa}`,
         inicio,
@@ -356,16 +402,15 @@ export async function getEventosAgenda(
     const valorJuros = Number(p.valorJuros);
     const valor = Number(p.valor);
     const pago = !!p.dataPagamento;
-    const dataExibicao = pago
-      ? startOfDay(p.dataPagamento!)
-      : startOfDay(p.dataVencimento);
+    // Mantém o evento no dia do vencimento na agenda (evita sumir ao confirmar pagamento).
+    const dataExibicao = parseDateInput(p.dataVencimento);
 
     if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
 
-    const vencimentoContrato = startOfDay(
+    const vencimentoContrato = parseDateInput(
       p.dataVencimentoOriginal ?? p.dataVencimento
     );
-    const vencimentoPagamento = startOfDay(p.dataVencimento);
+    const vencimentoPagamento = parseDateInput(p.dataVencimento);
     const pagamentoReagendado =
       vencimentoContrato.getTime() !== vencimentoPagamento.getTime();
 
@@ -378,19 +423,31 @@ export async function getEventosAgenda(
           p.isentarJuros
         );
 
+    const dataInicioLocacao = parseDateInput(p.locacao.dataInicio);
+    const ePrimeiraSemanaRetirada =
+      !pago &&
+      Number(p.locacao.valorCaucao) > 0 &&
+      !p.locacao.caucaoPaga &&
+      dateKey(dataExibicao) === dateKey(dataInicioLocacao);
+
     eventos.push({
       id: `parcela-${p.id}`,
       chave: `parcela-${p.id}`,
       referenciaTipo: "parcela",
       referenciaId: p.id,
-      titulo: `Pagamento — ${p.locacao.cliente.nome}`,
-      descricao: p.locacao.veiculo.placa,
+      titulo: ePrimeiraSemanaRetirada
+        ? `1ª semana — ${p.locacao.cliente.nome}`
+        : `Pagamento — ${p.locacao.cliente.nome}`,
+      descricao: ePrimeiraSemanaRetirada
+        ? `${p.locacao.veiculo.placa} · caução é item separado no mesmo dia`
+        : p.locacao.veiculo.placa,
       dataInicio: dataExibicao,
       tipo: "PAGAMENTO_CLIENTE",
       href: `/locacoes/${p.locacaoId}`,
       meta: {
         placa: p.locacao.veiculo.placa,
         clienteNome: p.locacao.cliente.nome,
+        locacaoId: p.locacaoId,
         valor,
         valorBase,
         valorJuros,
@@ -401,15 +458,17 @@ export async function getEventosAgenda(
         dataVencimentoContrato: vencimentoContrato,
         diaSemanaContrato: nomeDiaSemana(vencimentoContrato),
         pagamentoReagendado,
+        dataPagamento: p.dataPagamento
+          ? parseDateInput(p.dataPagamento)
+          : undefined,
+        ePrimeiraSemanaRetirada,
       },
     });
   }
 
   for (const p of parcelasFinanciamento) {
     const pago = !!p.dataPagamento;
-    const dataExibicao = pago
-      ? startOfDay(p.dataPagamento!)
-      : startOfDay(p.dataVencimento);
+    const dataExibicao = parseDateInput(p.dataVencimento);
 
     if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
 
@@ -443,6 +502,9 @@ export async function getEventosAgenda(
         concluido: pago,
         parcelaNumero: p.numero,
         totalParcelas: p.financiamento.totalParcelas,
+        dataPagamento: p.dataPagamento
+          ? startOfDay(p.dataPagamento)
+          : undefined,
       },
     });
   }

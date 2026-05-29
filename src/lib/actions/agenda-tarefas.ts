@@ -3,10 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { dateKey, parseDateInput } from "@/lib/utils";
 import { requireAuth, hasPermission } from "@/lib/auth";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
-import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
-import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
+import { removerParcelasPendentesDuplicadas } from "@/lib/parcelas-semanais";
+import {
+  ensureCategoriasFinanceirasPadrao,
+  getCategoriaCaucao,
+  getCategoriaLocacaoVeiculos,
+} from "@/lib/financeiro-categorias";
+import { caucaoPendente } from "@/lib/caucao-locacao";
+import {
+  sincronizarLancamentoCaucao,
+  sincronizarLancamentoParcela,
+} from "@/lib/financeiro-lancamento";
 import { estornarPagamentoParcelaFinanciamento } from "@/lib/actions/financiamento-veiculo";
 import type { FormaPagamento } from "@/types/prisma";
 import {
@@ -30,6 +40,53 @@ function revalidateAgenda() {
   revalidatePath("/locacoes");
   revalidatePath("/clientes/contratos");
   revalidatePath("/financeiro");
+  revalidatePath("/financeiro/fluxo");
+  revalidatePath("/financeiro/categorias");
+  revalidatePath("/");
+}
+
+export type ConfirmacaoPagamentoInput = {
+  registrarFinanceiro?: boolean;
+  formaPagamento?: string | null;
+  /** yyyy-MM-dd do dia em que o pagamento foi confirmado na agenda */
+  dataRecebimento?: string | null;
+};
+
+function parseFormaPagamento(raw: unknown): FormaPagamento | null {
+  return typeof raw === "string" && raw.length > 0
+    ? (raw as FormaPagamento)
+    : null;
+}
+
+function parseConfirmacaoPagamentoInput(
+  input: FormData | ConfirmacaoPagamentoInput
+): Required<Pick<ConfirmacaoPagamentoInput, "registrarFinanceiro">> &
+  ConfirmacaoPagamentoInput & { formaPagamento: FormaPagamento | null } {
+  if (input instanceof FormData) {
+    const v = input.get("registrarFinanceiro");
+    const registrarFinanceiro =
+      v == null ? true : v === "on" || v === "true";
+    return {
+      registrarFinanceiro,
+      formaPagamento: parseFormaPagamento(input.get("formaPagamento")),
+      dataRecebimento: (input.get("dataRecebimento") as string) || null,
+    };
+  }
+  return {
+    registrarFinanceiro: input.registrarFinanceiro !== false,
+    formaPagamento: parseFormaPagamento(input.formaPagamento),
+    dataRecebimento: input.dataRecebimento ?? null,
+  };
+}
+
+function resolveDataPagamentoConfirmado(
+  dataRecebimento: string | null | undefined,
+  fallback: Date
+): Date {
+  if (dataRecebimento && String(dataRecebimento).trim().length > 0) {
+    return parseDateInput(dataRecebimento);
+  }
+  return parseDateInput(fallback);
 }
 
 export async function concluirTarefaAgenda(
@@ -40,10 +97,14 @@ export async function concluirTarefaAgenda(
   try {
     await assertAgendaAccess();
 
-    if (chave.startsWith("parcela-") || chave.startsWith("financiamento-")) {
+    if (
+      chave.startsWith("parcela-") ||
+      chave.startsWith("financiamento-") ||
+      chave.startsWith("caucao-")
+    ) {
       return {
         success: false,
-        error: "Use confirmar pagamento para parcelas",
+        error: "Use confirmar pagamento para parcelas e caução",
       };
     }
 
@@ -101,6 +162,32 @@ export async function desfazerTarefaAgenda(
 
     if (chave.startsWith("financiamento-")) {
       return estornarPagamentoParcelaFinanciamento(referenciaId);
+    }
+
+    if (chave.startsWith("caucao-")) {
+      const locacao = await prisma.locacao.findUnique({
+        where: { id: referenciaId },
+      });
+      if (!locacao?.caucaoPaga) {
+        return { success: false, error: "Caução não está registrada como paga" };
+      }
+      const categoria = await getCategoriaCaucao();
+      await prisma.$transaction(async (tx) => {
+        await tx.locacao.update({
+          where: { id: referenciaId },
+          data: { caucaoPaga: false, caucaoDataPagamento: null },
+        });
+        await tx.transacaoFinanceira.deleteMany({
+          where: {
+            locacaoId: referenciaId,
+            categoriaId: categoria.id,
+            parcelaId: null,
+          },
+        });
+      });
+      revalidateAgenda();
+      revalidatePath(`/locacoes/${referenciaId}`);
+      return { success: true };
     }
 
     if (chave.startsWith("parcela-")) {
@@ -280,9 +367,132 @@ export async function reagendarTarefaAgenda(
   }
 }
 
+export async function confirmarCaucaoLocacao(
+  locacaoId: string,
+  input: FormData | ConfirmacaoPagamentoInput
+): Promise<ActionResult> {
+  try {
+    await assertAgendaAccess();
+
+    const locacao = await prisma.locacao.findUnique({
+      where: { id: locacaoId },
+      include: {
+        veiculo: { select: { placa: true } },
+        cliente: { select: { nome: true } },
+      },
+    });
+
+    if (!locacao) {
+      return { success: false, error: "Locação não encontrada" };
+    }
+    if (locacao.caucaoPaga) {
+      return { success: false, error: "Caução já foi recebida" };
+    }
+    const valorCaucao = Number(locacao.valorCaucao);
+    if (valorCaucao <= 0) {
+      return { success: false, error: "Esta locação não possui caução" };
+    }
+
+    const opts = parseConfirmacaoPagamentoInput(input);
+    const dataPagamento = resolveDataPagamentoConfirmado(
+      opts.dataRecebimento,
+      locacao.dataInicio
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.locacao.update({
+        where: { id: locacaoId },
+        data: { caucaoPaga: true, caucaoDataPagamento: dataPagamento },
+      });
+
+      if (opts.registrarFinanceiro) {
+        await ensureCategoriasFinanceirasPadrao(tx);
+        const categoria = await getCategoriaCaucao(tx);
+        await sincronizarLancamentoCaucao(tx, {
+          categoriaId: categoria.id,
+          tipo: "ENTRADA",
+          valor: valorCaucao,
+          descricao: `Caução — ${locacao.veiculo.placa} — ${locacao.cliente.nome}`,
+          data: dataPagamento,
+          formaPagamento: opts.formaPagamento,
+          locacaoId,
+        });
+      }
+    });
+
+    revalidateAgenda();
+    revalidatePath(`/locacoes/${locacaoId}`);
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Erro ao confirmar caução",
+    };
+  }
+}
+
+/** 1ª semana + caução na retirada do veículo. */
+export async function confirmarRecebimentoRetirada(
+  locacaoId: string,
+  input: FormData | ConfirmacaoPagamentoInput
+): Promise<ActionResult> {
+  try {
+    await assertAgendaAccess();
+
+    const locacao = await prisma.locacao.findUnique({
+      where: { id: locacaoId },
+    });
+    if (!locacao) {
+      return { success: false, error: "Locação não encontrada" };
+    }
+
+    let recebeuAlgo = false;
+    const dataRetirada = parseDateInput(locacao.dataInicio);
+
+    const primeiraParcela = await prisma.parcelaLocacao.findFirst({
+      where: { locacaoId, dataPagamento: null },
+      orderBy: { dataVencimento: "asc" },
+    });
+
+    const parcelaNaRetirada =
+      primeiraParcela &&
+      dateKey(primeiraParcela.dataVencimento) === dateKey(dataRetirada);
+
+    if (caucaoPendente(locacao) && parcelaNaRetirada) {
+      const rCaucao = await confirmarCaucaoLocacao(locacaoId, input);
+      if (!rCaucao.success) return rCaucao;
+      recebeuAlgo = true;
+    }
+
+    if (primeiraParcela && parcelaNaRetirada) {
+      const rParcela = await confirmarPagamentoParcela(
+        primeiraParcela.id,
+        input
+      );
+      if (!rParcela.success) return rParcela;
+      recebeuAlgo = true;
+    }
+
+    if (!recebeuAlgo) {
+      return { success: false, error: "Nada pendente para receber na retirada" };
+    }
+
+    await removerParcelasPendentesDuplicadas();
+    revalidateAgenda();
+    revalidatePath(`/locacoes/${locacaoId}`);
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error:
+        e instanceof Error ? e.message : "Erro ao confirmar recebimento",
+    };
+  }
+}
+
 export async function confirmarPagamentoParcela(
   parcelaId: string,
-  formData: FormData
+  input: FormData | ConfirmacaoPagamentoInput = { registrarFinanceiro: true }
 ): Promise<ActionResult> {
   try {
     await assertAgendaAccess();
@@ -307,46 +517,44 @@ export async function confirmarPagamentoParcela(
       return { success: false, error: "Parcela já está paga" };
     }
 
-    const registrarFinanceiro =
-      formData.get("registrarFinanceiro") === "on" ||
-      formData.get("registrarFinanceiro") === "true";
-    const formaRaw = formData.get("formaPagamento");
-    const formaPagamento =
-      typeof formaRaw === "string" && formaRaw.length > 0
-        ? (formaRaw as FormaPagamento)
-        : null;
-
+    const opts = parseConfirmacaoPagamentoInput(input);
     const valorPago = Number(parcela.valor);
+    const dataPagamento = resolveDataPagamentoConfirmado(
+      opts.dataRecebimento,
+      parcela.dataVencimento
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.parcelaLocacao.update({
         where: { id: parcelaId },
         data: {
-          dataPagamento: new Date(),
+          dataPagamento,
           pagamentoAjustado: false,
           isentarJuros: false,
         },
       });
 
-      if (registrarFinanceiro) {
+      if (opts.registrarFinanceiro) {
+        await ensureCategoriasFinanceirasPadrao(tx);
         const categoria = await getCategoriaLocacaoVeiculos(tx);
         const descricaoJuros =
           Number(parcela.valorJuros) > 0
             ? ` (incl. juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
             : "";
-        await criarLancamentoFinanceiro(tx, {
+        await sincronizarLancamentoParcela(tx, {
           categoriaId: categoria.id,
           tipo: "ENTRADA",
           valor: valorPago,
           descricao: `Locação ${parcela.locacao.veiculo.placa} — ${parcela.locacao.cliente.nome}${descricaoJuros}`,
-          data: new Date(),
-          formaPagamento,
+          data: dataPagamento,
+          formaPagamento: opts.formaPagamento,
           parcelaId,
           locacaoId: parcela.locacaoId,
         });
       }
     });
 
+    await removerParcelasPendentesDuplicadas();
     revalidateAgenda();
     revalidatePath(`/locacoes/${parcela.locacaoId}`);
     return { success: true };
@@ -417,7 +625,7 @@ export async function ajustarPagamentoParcela(
 
       if (registrarFinanceiro) {
         const categoria = await getCategoriaLocacaoVeiculos(tx);
-        await criarLancamentoFinanceiro(tx, {
+        await sincronizarLancamentoParcela(tx, {
           categoriaId: categoria.id,
           tipo: "ENTRADA",
           valor: valorBase,

@@ -7,6 +7,8 @@ import {
   getVeiculoById,
   toggleProblemaCronico,
 } from "@/lib/actions/veiculos";
+import { getVeiculoFinanceiro } from "@/lib/veiculo-financeiro";
+import { VeiculoFinanceiroPanel } from "@/components/veiculos/veiculo-financeiro-panel";
 import { submitProblemaCronico } from "@/lib/actions/form-actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,6 @@ import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
 import { ProblemaCronicoForm } from "@/components/veiculos/problema-cronico-form";
 import { VeiculoManutencoesList } from "@/components/veiculos/veiculo-manutencoes-list";
-import { VeiculoFinanciamentoCard } from "@/components/veiculos/veiculo-financiamento-card";
 import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
 import { PageActions } from "@/components/shared/page-actions";
 import { GRAVIDADE_LABEL, GRAVIDADE_STYLE, PORTE_VEICULO_LABEL } from "@/lib/constants/enums";
@@ -32,7 +33,10 @@ export default async function VeiculoDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const veiculo = await getVeiculoById(id);
+  const [veiculo, financeiro] = await Promise.all([
+    getVeiculoById(id),
+    getVeiculoFinanceiro(id),
+  ]);
   if (!veiculo) notFound();
 
   const ultimaManutencao = veiculo.manutencoes[0] ?? null;
@@ -158,9 +162,7 @@ export default async function VeiculoDetalhePage({
         </Card>
       )}
 
-      {veiculo.financiamento && (
-        <VeiculoFinanciamentoCard financiamento={veiculo.financiamento} />
-      )}
+      {financeiro && <VeiculoFinanceiroPanel data={financeiro} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>

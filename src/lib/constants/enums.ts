@@ -98,6 +98,7 @@ export const TIPO_EVENTO_AGENDA_LABEL: Record<TipoEventoAgenda, string> = {
   LOCACAO_FIM_PREVISTO: "Devolução prevista",
   LOCACAO_FIM_REAL: "Devolução",
   PAGAMENTO_CLIENTE: "Pagamento cliente",
+  CAUCAO_LOCACAO: "Caução (retirada)",
   ENTREGA_VEICULO: "Entrega de veículo",
   RETIRADA_VEICULO: "Buscar / retirar veículo",
   OFICINA_SERVICO: "Oficina / serviço",
@@ -117,6 +118,8 @@ export const TIPO_EVENTO_AGENDA_STYLE: Record<TipoEventoAgenda, string> = {
     "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   PAGAMENTO_CLIENTE:
     "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  CAUCAO_LOCACAO:
+    "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30",
   ENTREGA_VEICULO:
     "bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-500/30",
   RETIRADA_VEICULO:
