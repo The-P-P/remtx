@@ -2,7 +2,6 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { TIPOS_MANUTENCAO_PREVENTIVA } from "./data/tipos-manutencao-preventiva";
 import {
   dataFimParaParcelas,
   listarVencimentosSemanais,
@@ -15,56 +14,16 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Iniciando seed REMTX...");
 
-  // Catálogo completo de manutenção preventiva (hatch/sedan/compactos BR)
-  const tiposManutencaoIds: string[] = [];
-  for (const tipo of TIPOS_MANUTENCAO_PREVENTIVA) {
-    const existente = await prisma.tipoManutencao.findUnique({
-      where: { nome: tipo.nome },
-    });
-    if (existente) {
-      await prisma.pecaPadraoTipo.deleteMany({
-        where: { tipoManutencaoId: existente.id },
-      });
-      await prisma.tipoManutencao.update({
-        where: { id: existente.id },
-        data: {
-          descricao: tipo.descricao,
-          intervaloKm: tipo.intervaloKm,
-          ativo: true,
-          pecasPadrao: {
-            create: tipo.pecas.map((p) => ({
-              nome: p.nome,
-              quantidade: p.quantidade,
-            })),
-          },
-        },
-      });
-      tiposManutencaoIds.push(existente.id);
-    } else {
-      const criado = await prisma.tipoManutencao.create({
-        data: {
-          nome: tipo.nome,
-          descricao: tipo.descricao,
-          intervaloKm: tipo.intervaloKm,
-          pecasPadrao: {
-            create: tipo.pecas.map((p) => ({
-              nome: p.nome,
-              quantidade: p.quantidade,
-            })),
-          },
-        },
-      });
-      tiposManutencaoIds.push(criado.id);
-    }
-  }
-  const tipoRevisao10k =
-    (await prisma.tipoManutencao.findUnique({
-      where: { nome: "Revisão 10.000 km — Básica" },
-    })) ??
-    (await prisma.tipoManutencao.findFirst({
-      where: { nome: { contains: "10.000" } },
-    }));
-  const tipoRevisaoId = tipoRevisao10k?.id ?? tiposManutencaoIds[0];
+  const tipoRevisao = await prisma.tipoManutencao.upsert({
+    where: { nome: "Revisão periódica" },
+    update: { ativo: true, intervaloKm: 10000 },
+    create: {
+      nome: "Revisão periódica",
+      descricao: "Tipo demo para manutenções de exemplo",
+      intervaloKm: 10000,
+    },
+  });
+  const tipoRevisaoId = tipoRevisao.id;
 
   const { ensureCategoriasFinanceirasPadrao } = await import(
     "@/lib/financeiro-categorias"

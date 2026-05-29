@@ -6,6 +6,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KmInput } from "@/components/ui/km-input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
@@ -167,25 +169,17 @@ export function LocacaoForm({
 
         <div className="space-y-2">
           <Label htmlFor="kmInicio">Km retirada *</Label>
-          <Input
+          <KmInput
             id="kmInicio"
             name="kmInicio"
-            type="number"
             defaultValue={veiculoSel?.kmAtual ?? 0}
             key={veiculoSel?.id ?? "none"}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="valorDiaria">Valor semanal (R$) *</Label>
-          <Input
-            id="valorDiaria"
-            name="valorDiaria"
-            type="number"
-            step="0.01"
-            min="0.01"
-            required
-          />
+          <Label htmlFor="valorDiaria">Valor semanal *</Label>
+          <CurrencyInput id="valorDiaria" name="valorDiaria" required />
         </div>
       </div>
 

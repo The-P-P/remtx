@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { parseDateInput } from "@/lib/utils";
+import { currencyPositive } from "@/lib/validations/currency";
 
 const formaPagamentoSchema = z
   .enum([
@@ -16,9 +18,9 @@ const formaPagamentoSchema = z
 export const transacaoSchema = z.object({
   tipo: z.enum(["ENTRADA", "SAIDA"]),
   categoriaId: z.string().min(1, "Selecione uma categoria"),
-  valor: z.coerce.number().positive("Valor deve ser maior que zero"),
+  valor: currencyPositive("Valor deve ser maior que zero"),
   descricao: z.string().min(2, "Descrição muito curta").max(500),
-  data: z.coerce.date(),
+  data: z.union([z.string(), z.date()]).transform(parseDateInput),
   formaPagamento: z
     .union([formaPagamentoSchema, z.literal("")])
     .transform((v) => (v === "" || v == null ? null : v)),

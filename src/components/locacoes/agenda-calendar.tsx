@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   format,
   startOfMonth,
@@ -58,6 +58,14 @@ export function AgendaCalendar({
   clientes: ClienteOption[];
   abrirNovaTarefa?: boolean;
 }) {
+  const [diaAtivoNum, setDiaAtivoNum] = useState<number | undefined>(
+    diaSelecionado
+  );
+
+  useEffect(() => {
+    setDiaAtivoNum(diaSelecionado);
+  }, [ano, mes, diaSelecionado]);
+
   const referencia = new Date(ano, mes - 1, 1);
   const inicioMes = startOfMonth(referencia);
   const fimMes = endOfMonth(referencia);
@@ -76,9 +84,13 @@ export function AgendaCalendar({
   }, [eventos]);
 
   const diaAtivo =
-    diaSelecionado && diaSelecionado >= 1 && diaSelecionado <= dias.length
-      ? new Date(ano, mes - 1, diaSelecionado)
+    diaAtivoNum && diaAtivoNum >= 1 && diaAtivoNum <= dias.length
+      ? new Date(ano, mes - 1, diaAtivoNum)
       : null;
+
+  const hoje = new Date();
+  const hojeNoMesAtual =
+    ano === hoje.getFullYear() && mes === hoje.getMonth() + 1;
 
   const eventosDiaSelecionado = diaAtivo
     ? (eventosPorDia.get(format(diaAtivo, "yyyy-MM-dd")) ?? [])
@@ -125,21 +137,31 @@ export function AgendaCalendar({
             <ChevronRight className="size-4" />
           </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          render={
-            <Link
-              href={eventosUrl(
-                new Date().getFullYear(),
-                new Date().getMonth() + 1,
-                new Date().getDate()
-              )}
-            />
-          }
-        >
-          Hoje
-        </Button>
+        {hojeNoMesAtual ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDiaAtivoNum(hoje.getDate())}
+          >
+            Hoje
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            render={
+              <Link
+                href={eventosUrl(
+                  hoje.getFullYear(),
+                  hoje.getMonth() + 1,
+                  hoje.getDate()
+                )}
+              />
+            }
+          >
+            Hoje
+          </Button>
+        )}
       </div>
 
       {tiposPresentes.length > 0 && (
@@ -174,10 +196,11 @@ export function AgendaCalendar({
               const foraMes = !isSameMonth(dia, referencia);
 
               return (
-                <Link
+                <button
                   key={key}
-                  href={eventosUrl(ano, mes, dia.getDate())}
-                  className={`min-h-[72px] rounded-lg border p-1 text-left transition-colors sm:min-h-[88px] sm:p-1.5 ${
+                  type="button"
+                  onClick={() => setDiaAtivoNum(dia.getDate())}
+                  className={`min-h-[72px] w-full rounded-lg border p-1 text-left transition-colors sm:min-h-[88px] sm:p-1.5 ${
                     selecionado
                       ? "border-primary bg-primary/5 ring-2 ring-primary/30"
                       : "border-transparent hover:bg-muted/50"
@@ -210,7 +233,7 @@ export function AgendaCalendar({
                       </span>
                     )}
                   </div>
-                </Link>
+                </button>
               );
             })}
           </div>

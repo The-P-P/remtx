@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -70,12 +71,9 @@ export function VeiculoFinanciamentoFields({
 
             <div className="space-y-2">
               <Label htmlFor="financiamentoValorFinanciado">Valor financiado *</Label>
-              <Input
+              <CurrencyInput
                 id="financiamentoValorFinanciado"
                 name="financiamentoValorFinanciado"
-                type="number"
-                step="0.01"
-                min="0"
                 required={emFinanciamento}
                 disabled={somenteBasico}
                 defaultValue={valorFinanciadoDefault}
@@ -83,24 +81,19 @@ export function VeiculoFinanciamentoFields({
             </div>
             <div className="space-y-2">
               <Label htmlFor="financiamentoValorEntrada">Entrada</Label>
-              <Input
+              <CurrencyInput
                 id="financiamentoValorEntrada"
                 name="financiamentoValorEntrada"
-                type="number"
-                step="0.01"
-                min="0"
                 disabled={somenteBasico}
                 defaultValue={initial ? Number(initial.valorEntrada) : 0}
+                allowEmpty
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="financiamentoSaldoDevedor">Saldo devedor *</Label>
-              <Input
+              <CurrencyInput
                 id="financiamentoSaldoDevedor"
                 name="financiamentoSaldoDevedor"
-                type="number"
-                step="0.01"
-                min="0"
                 required={emFinanciamento}
                 disabled={somenteBasico}
                 defaultValue={saldoDefault ?? valorFinanciadoDefault}
@@ -108,12 +101,9 @@ export function VeiculoFinanciamentoFields({
             </div>
             <div className="space-y-2">
               <Label htmlFor="financiamentoValorParcela">Valor da parcela *</Label>
-              <Input
+              <CurrencyInput
                 id="financiamentoValorParcela"
                 name="financiamentoValorParcela"
-                type="number"
-                step="0.01"
-                min="0"
                 required={emFinanciamento}
                 disabled={somenteBasico}
                 defaultValue={initial ? Number(initial.valorParcela) : undefined}

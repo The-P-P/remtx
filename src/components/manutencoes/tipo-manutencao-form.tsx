@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KmInput } from "@/components/ui/km-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
@@ -73,13 +74,11 @@ export function TipoManutencaoForm({
 
       <div className="space-y-2">
         <Label htmlFor="intervaloKm">Intervalo (km) *</Label>
-        <Input
+        <KmInput
           id="intervaloKm"
           name="intervaloKm"
-          type="number"
           required
           defaultValue={initial?.intervaloKm}
-          placeholder="10000"
         />
       </div>
 

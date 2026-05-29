@@ -1,6 +1,7 @@
 export type {
   UserRole,
   StatusVeiculo,
+  PorteVeiculo,
   StatusLocacao,
   TipoEventoAgenda,
   TipoTransacao,

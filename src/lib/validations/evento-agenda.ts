@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseCurrencyInput } from "@/lib/utils";
 
 const tiposManuais = [
   "ENTREGA_VEICULO",
@@ -22,7 +23,11 @@ export const eventoAgendaSchema = z.object({
   valor: z
     .string()
     .optional()
-    .transform((v) => (v && v.length > 0 ? Number(v) : undefined)),
+    .transform((v) => {
+      if (!v || v.length === 0) return undefined;
+      const parsed = parseCurrencyInput(v);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    }),
   veiculoId: z.string().optional(),
   clienteId: z.string().optional(),
   locacaoId: z.string().optional(),

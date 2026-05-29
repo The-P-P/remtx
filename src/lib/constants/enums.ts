@@ -8,6 +8,8 @@ import type {
   AlertaManutencao,
 } from "@/types/prisma";
 
+export { PORTE_VEICULO_LABEL } from "@/lib/porte-veiculo";
+
 export const TIPO_TRANSACAO_LABEL: Record<TipoTransacao, string> = {
   ENTRADA: "Entrada",
   SAIDA: "Saída",

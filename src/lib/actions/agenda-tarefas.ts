@@ -47,7 +47,11 @@ export async function concluirTarefaAgenda(
       };
     }
 
-    if (!chave.startsWith("loc-") && !chave.startsWith("ipva-")) {
+    if (
+      !chave.startsWith("loc-") &&
+      !chave.startsWith("ipva-") &&
+      !chave.startsWith("manutencao-")
+    ) {
       const evento = await prisma.eventoAgenda.findUnique({
         where: { id: referenciaId },
       });
@@ -119,7 +123,11 @@ export async function desfazerTarefaAgenda(
       return { success: true };
     }
 
-    if (!chave.startsWith("loc-") && !chave.startsWith("ipva-")) {
+    if (
+      !chave.startsWith("loc-") &&
+      !chave.startsWith("ipva-") &&
+      !chave.startsWith("manutencao-")
+    ) {
       await prisma.eventoAgenda.update({
         where: { id: referenciaId },
         data: { concluido: false },
@@ -232,7 +240,11 @@ export async function reagendarTarefaAgenda(
       return { success: true };
     }
 
-    if (!chave.startsWith("loc-") && !chave.startsWith("ipva-")) {
+    if (
+      !chave.startsWith("loc-") &&
+      !chave.startsWith("ipva-") &&
+      !chave.startsWith("manutencao-")
+    ) {
       await prisma.eventoAgenda.update({
         where: { id: referenciaId },
         data: { dataInicio: data, concluido: false },
@@ -454,6 +466,15 @@ async function extrairDataPrevistaDaChave(chave: string): Promise<Date> {
     if (suffix === "fim-real")
       return startOfDay(loc?.dataFimReal ?? new Date());
     return startOfDay(loc?.dataInicio ?? new Date());
+  }
+
+  if (chave.startsWith("manutencao-")) {
+    const manutencaoId = chave.slice("manutencao-".length);
+    const manutencao = await prisma.manutencao.findUnique({
+      where: { id: manutencaoId },
+      select: { dataRealizada: true },
+    });
+    return startOfDay(manutencao?.dataRealizada ?? new Date());
   }
 
   return startOfDay(new Date());

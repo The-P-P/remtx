@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KmInput } from "@/components/ui/km-input";
 import { Label } from "@/components/ui/label";
 import {
   ativarLocacao,
@@ -93,10 +94,9 @@ export function LocacaoAcoes({
           </div>
           <div className="space-y-2">
             <Label htmlFor="kmFim">Km devolução *</Label>
-            <Input
+            <KmInput
               id="kmFim"
               name="kmFim"
-              type="number"
               defaultValue={Math.max(kmInicio, kmAtualVeiculo)}
               required
             />

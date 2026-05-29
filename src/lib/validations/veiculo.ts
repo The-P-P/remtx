@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { kmMinZero } from "@/lib/validations/km";
+import { PORTE_VEICULO_VALUES } from "@/lib/porte-veiculo";
 
 export const veiculoSchema = z.object({
   placa: z
@@ -18,8 +20,9 @@ export const veiculoSchema = z.object({
   modelo: z.string().min(1, "Modelo obrigatório"),
   ano: z.coerce.number().int().min(1990).max(new Date().getFullYear() + 1),
   cor: z.string().optional(),
-  kmAtual: z.coerce.number().int().min(0),
-  kmProximaRevisao: z.coerce.number().int().min(0),
+  porte: z.enum(PORTE_VEICULO_VALUES),
+  kmAtual: kmMinZero(),
+  kmProximaRevisao: kmMinZero(),
   status: z.enum(["DISPONIVEL", "ALUGADO", "EM_MANUTENCAO", "INATIVO"]),
   observacoes: z.string().optional(),
   ipvaVencimento: z

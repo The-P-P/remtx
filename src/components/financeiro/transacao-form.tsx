@@ -5,6 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
 import {
@@ -134,16 +135,12 @@ export function TransacaoForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="valor">Valor (R$) *</Label>
-          <Input
+          <Label htmlFor="valor">Valor *</Label>
+          <CurrencyInput
             id="valor"
             name="valor"
-            type="number"
-            step="0.01"
-            min="0.01"
             required
             defaultValue={initial?.valor}
-            placeholder="0,00"
           />
         </div>
         <div className="space-y-2">

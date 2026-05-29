@@ -6,6 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusVeiculoBadge } from "@/components/veiculos/status-badge";
 import { AlertaKmBadge } from "@/components/veiculos/alerta-km-badge";
 import { formatKm, formatCurrency } from "@/lib/utils";
+import { VeiculoSilhouette } from "@/components/veiculos/veiculo-silhouette";
+import { corParaHex } from "@/lib/porte-veiculo";
+import { resolverPorte } from "@/lib/veiculo-visual";
 import { Badge } from "@/components/ui/badge";
 import type { getVeiculos } from "@/lib/actions/veiculos";
 
@@ -22,12 +25,22 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {veiculos.map((v) => (
-        <Card
-          key={v.id}
-          className={v.status === "INATIVO" ? "opacity-65" : undefined}
-        >
-          <CardContent className="space-y-3 p-4">
+      {veiculos.map((v) => {
+        const corHex = corParaHex(v.cor);
+        const porte = resolverPorte(v.porte, v.modelo);
+
+        return (
+          <Card
+            key={v.id}
+            className={`overflow-hidden py-0 gap-0 ${v.status === "INATIVO" ? "opacity-65" : ""}`}
+          >
+            <VeiculoSilhouette
+              porte={porte}
+              cor={corHex}
+              corLabel={v.cor}
+              compact
+            />
+          <CardContent className="space-y-3 p-4 pt-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-mono text-lg font-bold tracking-wide">{v.placa}</p>
@@ -132,7 +145,8 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
               </div>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

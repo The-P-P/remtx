@@ -84,12 +84,6 @@ async function validarKmManutencao(
   if (!veiculo) {
     return { ok: false as const, error: "Veículo não encontrado" };
   }
-  if (veiculo.status === "ALUGADO") {
-    return {
-      ok: false as const,
-      error: `Veículo ${veiculo.placa} está alugado. Registre a devolução antes da manutenção.`,
-    };
-  }
   if (kmRealizada < veiculo.kmAtual) {
     const ultima = await prisma.manutencao.findFirst({
       where: { veiculoId },
@@ -271,7 +265,7 @@ export async function createManutencao(
       });
 
       let novoStatus = veiculo?.status;
-      if (colocarEmManutencao) {
+      if (colocarEmManutencao && veiculo?.status !== "ALUGADO") {
         novoStatus = "EM_MANUTENCAO";
       } else if (veiculo?.status === "EM_MANUTENCAO") {
         novoStatus = "DISPONIVEL";
@@ -303,6 +297,7 @@ export async function createManutencao(
 
     revalidatePath("/manutencoes");
     revalidatePath("/financeiro");
+    revalidatePath("/locacoes");
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${parsed.data.veiculoId}`);
     revalidatePath("/");
@@ -428,6 +423,7 @@ export async function updateManutencao(
 
     revalidatePath("/manutencoes");
     revalidatePath("/financeiro");
+    revalidatePath("/locacoes");
     revalidatePath(`/manutencoes/${id}/editar`);
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${parsed.data.veiculoId}`);
@@ -461,6 +457,7 @@ export async function deleteManutencao(id: string): Promise<ActionResult> {
     });
 
     revalidatePath("/manutencoes");
+    revalidatePath("/locacoes");
     revalidatePath("/veiculos");
     revalidatePath(`/veiculos/${veiculoId}`);
     revalidatePath("/");

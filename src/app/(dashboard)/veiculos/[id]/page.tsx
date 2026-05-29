@@ -19,8 +19,11 @@ import { VeiculoManutencoesList } from "@/components/veiculos/veiculo-manutencoe
 import { VeiculoFinanciamentoCard } from "@/components/veiculos/veiculo-financiamento-card";
 import { VeiculoDeleteButtonServer } from "@/components/veiculos/veiculo-delete-button-lazy";
 import { PageActions } from "@/components/shared/page-actions";
-import { GRAVIDADE_LABEL, GRAVIDADE_STYLE } from "@/lib/constants/enums";
+import { GRAVIDADE_LABEL, GRAVIDADE_STYLE, PORTE_VEICULO_LABEL } from "@/lib/constants/enums";
 import { formatKm } from "@/lib/utils";
+import { corParaHex } from "@/lib/porte-veiculo";
+import { resolverPorte } from "@/lib/veiculo-visual";
+import { VeiculoSilhouette } from "@/components/veiculos/veiculo-silhouette";
 import { LocacaoStatusBadge } from "@/components/locacoes/locacao-status-badge";
 
 export default async function VeiculoDetalhePage({
@@ -90,6 +93,18 @@ export default async function VeiculoDetalhePage({
           </PageActions>
         }
       />
+
+      <Card className="overflow-hidden py-0 gap-0">
+        <VeiculoSilhouette
+          porte={resolverPorte(veiculo.porte, veiculo.modelo)}
+          cor={corParaHex(veiculo.cor)}
+          corLabel={
+            veiculo.cor
+              ? `${veiculo.cor} · ${PORTE_VEICULO_LABEL[resolverPorte(veiculo.porte, veiculo.modelo)]}`
+              : PORTE_VEICULO_LABEL[resolverPorte(veiculo.porte, veiculo.modelo)]
+          }
+        />
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

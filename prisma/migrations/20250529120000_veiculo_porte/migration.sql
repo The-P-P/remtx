@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "PorteVeiculo" AS ENUM ('HATCH', 'SEDAN', 'SUV', 'CROSSOVER', 'MINIVAN', 'STATION_WAGON', 'COUPE', 'ESPORTIVO', 'PICAPE', 'FURGAO');
+
+-- AlterTable
+ALTER TABLE "Veiculo" ADD COLUMN "porte" "PorteVeiculo" NOT NULL DEFAULT 'SEDAN';

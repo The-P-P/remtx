@@ -50,7 +50,7 @@ type ClienteOption = { id: string; nome: string };
 export type TarefaAgendaSerializada = {
   id: string;
   chave: string;
-  referenciaTipo: "parcela" | "evento" | "agenda" | "financiamento";
+  referenciaTipo: "parcela" | "evento" | "agenda" | "financiamento" | "transacao" | "manutencao";
   referenciaId: string;
   titulo: string;
   descricao?: string | null;
@@ -154,7 +154,9 @@ export function AgendaTarefasDia({
     t.referenciaTipo === "evento";
 
   const isTarefaManual = (t: TarefaAgendaSerializada) =>
-    isEventoManual(t) ||
+    t.referenciaTipo !== "transacao" &&
+    t.referenciaTipo !== "manutencao" &&
+    (isEventoManual(t) ||
     [
       "ENTREGA_VEICULO",
       "RETIRADA_VEICULO",
@@ -163,7 +165,7 @@ export function AgendaTarefasDia({
       "LEMBRETE",
       "IPVA",
       "FINANCEIRO",
-    ].includes(t.tipo);
+    ].includes(t.tipo));
 
   function eventoEditFromTarefa(t: TarefaAgendaSerializada): EventoAgendaEdit {
     return {
@@ -208,7 +210,11 @@ export function AgendaTarefasDia({
       {tarefas.map((t) => {
         const concluido = t.meta?.concluido;
         const isPagamento = isPagamentoTipo(t.tipo);
-        const tarefaCheck = isTarefaManual(t) || t.chave.startsWith("loc-") || t.chave.startsWith("ipva-");
+        const tarefaCheck =
+          isTarefaManual(t) ||
+          t.chave.startsWith("loc-") ||
+          t.chave.startsWith("ipva-") ||
+          t.chave.startsWith("manutencao-");
 
         return (
           <div
@@ -267,9 +273,25 @@ export function AgendaTarefasDia({
                     )}
                   </div>
                 )}
+                {t.referenciaTipo === "transacao" && t.meta?.valor != null && (
+                  <p className="mt-1 text-sm font-semibold">
+                    {formatCurrency(t.meta.valor)}
+                  </p>
+                )}
+                {t.referenciaTipo === "manutencao" && t.meta?.valor != null && (
+                  <p className="mt-1 text-sm font-semibold">
+                    {formatCurrency(t.meta.valor)}
+                  </p>
+                )}
               </div>
               <Badge variant="outline" className="shrink-0">
-                {concluido ? "Feito" : t.meta?.atrasado ? "Atrasado" : "Pendente"}
+                {t.referenciaTipo === "transacao"
+                  ? "Lançado"
+                  : concluido
+                    ? "Feito"
+                    : t.meta?.atrasado
+                      ? "Atrasado"
+                      : "Pendente"}
               </Badge>
             </div>
 

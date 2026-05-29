@@ -1,14 +1,18 @@
 import { z } from "zod";
+import {
+  currencyMinZeroDefault,
+  currencyPositive,
+} from "@/lib/validations/currency";
 
-const money = z.coerce.number().min(0, "Valor inválido");
+const money = currencyMinZeroDefault();
 
 export const financiamentoVeiculoSchema = z
   .object({
     instituicao: z.string().optional(),
-    valorFinanciado: money.positive("Informe o valor financiado"),
-    valorEntrada: money.default(0),
-    saldoDevedor: money.positive("Informe o saldo devedor"),
-    valorParcela: money.positive("Informe o valor da parcela"),
+    valorFinanciado: currencyPositive("Informe o valor financiado"),
+    valorEntrada: money,
+    saldoDevedor: currencyPositive("Informe o saldo devedor"),
+    valorParcela: currencyPositive("Informe o valor da parcela"),
     totalParcelas: z.coerce.number().int().min(1, "Mínimo 1 parcela").max(360),
     diaVencimento: z.coerce.number().int().min(1).max(31),
     dataPrimeiraParcela: z

@@ -25,6 +25,13 @@ enum StatusVeiculo {
   INATIVO
 }
 
+enum PorteVeiculo {
+  HATCH
+  SEDAN
+  SUV
+  PICAPE
+}
+
 enum StatusLocacao {
   RESERVADA
   ATIVA
@@ -97,6 +104,7 @@ model Veiculo {
   modelo           String
   ano              Int
   cor              String?
+  porte            PorteVeiculo  @default(SEDAN)
   kmAtual          Int           @default(0)
   kmProximaRevisao Int
   status           StatusVeiculo @default(DISPONIVEL)

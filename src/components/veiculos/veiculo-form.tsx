@@ -4,12 +4,14 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KmInput } from "@/components/ui/km-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
-import type { StatusVeiculo } from "@/types/prisma";
+import type { StatusVeiculo, PorteVeiculo } from "@/types/prisma";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
+import { PorteVeiculoPicker } from "@/components/veiculos/porte-veiculo-picker";
 import {
   VeiculoFinanciamentoFields,
   type FinanciamentoInitial,
@@ -28,6 +30,7 @@ type VeiculoFormProps = {
     modelo: string;
     ano: number;
     cor?: string | null;
+    porte?: PorteVeiculo;
     kmAtual: number;
     kmProximaRevisao: number;
     status: StatusVeiculo;
@@ -52,7 +55,7 @@ export function VeiculoForm({
   );
 
   return (
-    <form action={formAction} className="w-full max-w-xl space-y-4">
+    <form action={formAction} className="w-full max-w-2xl space-y-4">
       {state.success === false && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}
@@ -117,26 +120,29 @@ export function VeiculoForm({
             required
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="cor">Cor</Label>
-          <Input id="cor" name="cor" defaultValue={initial?.cor ?? ""} />
-        </div>
+      </div>
+
+      <PorteVeiculoPicker
+        defaultPorte={initial?.porte}
+        defaultCor={initial?.cor}
+        defaultModelo={initial?.modelo}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="kmAtual">Km atual *</Label>
-          <Input
+          <KmInput
             id="kmAtual"
             name="kmAtual"
-            type="number"
             defaultValue={initial?.kmAtual ?? 0}
             required
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="kmProximaRevisao">Km próxima revisão *</Label>
-          <Input
+          <KmInput
             id="kmProximaRevisao"
             name="kmProximaRevisao"
-            type="number"
             defaultValue={initial?.kmProximaRevisao}
             required
           />

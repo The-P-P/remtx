@@ -113,6 +113,7 @@ function revalidateFinanceiro() {
   revalidatePath("/financeiro");
   revalidatePath("/financeiro/fluxo");
   revalidatePath("/financeiro/categorias");
+  revalidatePath("/locacoes");
   revalidatePath("/");
 }
 
@@ -422,7 +423,7 @@ export async function createTransacao(
         categoriaId: parsed.data.categoriaId,
         valor: parsed.data.valor,
         descricao: parsed.data.descricao.trim(),
-        data: startOfDay(parsed.data.data),
+        data: parsed.data.data,
         formaPagamento: parsed.data.formaPagamento,
       },
     });
@@ -486,7 +487,7 @@ export async function updateTransacao(
         categoriaId: parsed.data.categoriaId,
         valor: parsed.data.valor,
         descricao: parsed.data.descricao.trim(),
-        data: startOfDay(parsed.data.data),
+        data: parsed.data.data,
         formaPagamento: parsed.data.formaPagamento,
       },
     });

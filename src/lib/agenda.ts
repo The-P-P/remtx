@@ -11,7 +11,13 @@ import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 import { calcularJurosParcela } from "@/lib/juros-parcela";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
-export type ReferenciaAgenda = "parcela" | "evento" | "agenda" | "financiamento";
+export type ReferenciaAgenda =
+  | "parcela"
+  | "evento"
+  | "agenda"
+  | "financiamento"
+  | "transacao"
+  | "manutencao";
 
 export type AgendaEvento = {
   id: string;
@@ -150,11 +156,24 @@ export async function getEventosAgenda(
 ): Promise<AgendaEvento[]> {
   await prepararParcelasParaAgenda();
 
+  const conclusoesManutencaoReagendadas =
+    await prisma.conclusaoAgenda.findMany({
+      where: {
+        chave: { startsWith: "manutencao-" },
+        reagendadaPara: { gte: inicio, lte: fim },
+      },
+    });
+  const manutencaoIdsReagendadas = conclusoesManutencaoReagendadas.map((c) =>
+    c.chave.slice("manutencao-".length)
+  );
+
   const [
     locacoes,
     parcelas,
     parcelasFinanciamento,
     eventosManuais,
+    transacoesManuais,
+    manutencoes,
     veiculosComIpva,
     conclusoes,
   ] = await Promise.all([
@@ -209,6 +228,40 @@ export async function getEventosAgenda(
         cliente: { select: { nome: true } },
       },
     }),
+    prisma.transacaoFinanceira.findMany({
+      where: {
+        data: { gte: inicio, lte: fim },
+        parcelaId: null,
+        manutencaoId: null,
+        parcelaFinanciamentoId: null,
+      },
+      include: {
+        categoria: { select: { nome: true } },
+        locacao: {
+          select: {
+            id: true,
+            veiculo: { select: { placa: true } },
+            cliente: { select: { nome: true, id: true } },
+          },
+        },
+      },
+    }),
+    prisma.manutencao.findMany({
+      where: {
+        OR: [
+          { dataRealizada: { gte: inicio, lte: fim } },
+          ...(manutencaoIdsReagendadas.length > 0
+            ? [{ id: { in: manutencaoIdsReagendadas } }]
+            : []),
+        ],
+      },
+      include: {
+        veiculo: {
+          select: { id: true, placa: true, marca: true, modelo: true },
+        },
+        tipoManutencao: { select: { nome: true } },
+      },
+    }),
     prisma.veiculo.findMany({
       where: {
         ipvaVencimento: { not: null },
@@ -238,6 +291,20 @@ export async function getEventosAgenda(
       { concluida: c.concluida, reagendadaPara: c.reagendadaPara },
     ])
   );
+
+  if (manutencoes.length > 0) {
+    const conclusoesManutencao = await prisma.conclusaoAgenda.findMany({
+      where: {
+        chave: { in: manutencoes.map((m) => `manutencao-${m.id}`) },
+      },
+    });
+    for (const c of conclusoesManutencao) {
+      conclusaoMap.set(c.chave, {
+        concluida: c.concluida,
+        reagendadaPara: c.reagendadaPara,
+      });
+    }
+  }
 
   const eventos: AgendaEvento[] = [];
   const hoje = new Date();
@@ -408,6 +475,72 @@ export async function getEventosAgenda(
         clienteId: e.clienteId ?? undefined,
         valor: e.valor ? Number(e.valor) : undefined,
         concluido: e.concluido,
+      },
+    });
+  }
+
+  for (const t of transacoesManuais) {
+    const dataExibicao = startOfDay(t.data);
+    if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
+
+    const prefixo = t.tipo === "ENTRADA" ? "Entrada" : "Saída";
+    const extras = [
+      t.categoria.nome,
+      t.locacao?.veiculo.placa,
+      t.locacao?.cliente.nome,
+    ].filter(Boolean);
+
+    eventos.push({
+      id: `transacao-${t.id}`,
+      chave: `transacao-${t.id}`,
+      referenciaTipo: "transacao",
+      referenciaId: t.id,
+      titulo: `${prefixo} — ${t.descricao}`,
+      descricao: extras.length > 0 ? extras.join(" · ") : null,
+      dataInicio: dataExibicao,
+      tipo: "FINANCEIRO",
+      href: `/financeiro/${t.id}/editar`,
+      meta: {
+        valor: Number(t.valor),
+        placa: t.locacao?.veiculo.placa,
+        clienteNome: t.locacao?.cliente.nome,
+        clienteId: t.locacao?.cliente.id,
+        concluido: true,
+      },
+    });
+  }
+
+  for (const m of manutencoes) {
+    const chave = `manutencao-${m.id}`;
+    const conclusao = conclusaoMap.get(chave);
+    const dataExibicao = startOfDay(
+      conclusao?.reagendadaPara ?? m.dataRealizada
+    );
+    if (!dataNoIntervalo(dataExibicao, inicio, fim)) continue;
+
+    eventos.push({
+      id: chave,
+      chave,
+      referenciaTipo: "manutencao",
+      referenciaId: m.id,
+      titulo: `${m.tipoManutencao.nome} — ${m.veiculo.placa}`,
+      descricao: [
+        `${m.veiculo.marca} ${m.veiculo.modelo}`,
+        `${m.kmRealizada.toLocaleString("pt-BR")} km`,
+        m.kmProxima
+          ? `Próxima: ${m.kmProxima.toLocaleString("pt-BR")} km`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      dataInicio: dataExibicao,
+      tipo: "MANUTENCAO_AGENDADA",
+      href: `/manutencoes/${m.id}/editar`,
+      meta: {
+        placa: m.veiculo.placa,
+        veiculoId: m.veiculo.id,
+        valor: m.custo ? Number(m.custo) : undefined,
+        concluido: conclusao?.concluida ?? false,
       },
     });
   }

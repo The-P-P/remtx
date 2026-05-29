@@ -7,6 +7,8 @@ import { format } from "date-fns";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KmInput } from "@/components/ui/km-input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
@@ -186,23 +188,22 @@ export function ManutencaoForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="kmRealizada">Km na manutenção *</Label>
-          <Input
+          <KmInput
             id="kmRealizada"
             name="kmRealizada"
-            type="number"
             defaultValue={initial?.kmRealizada}
             required
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="kmProxima">Km próxima revisão *</Label>
-          <Input
+          <KmInput
             id="kmProxima"
             name="kmProxima"
-            type="number"
             key={`kmProxima-${tipoSelecionado}`}
             defaultValue={isEdit ? initial?.kmProxima : kmProximaSugerida}
             required={isEdit}
+            allowEmpty={!isEdit}
           />
           <p className="text-xs text-muted-foreground">
             {tipoAtual
@@ -211,14 +212,14 @@ export function ManutencaoForm({
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="custo">Custo (R$)</Label>
-          <Input
+          <Label htmlFor="custo">Custo</Label>
+          <CurrencyInput
             id="custo"
             name="custo"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={initial?.custo ? Number(initial.custo) : undefined}
+            allowEmpty
+            defaultValue={
+              initial?.custo ? Number(initial.custo) : undefined
+            }
           />
         </div>
       </div>
@@ -287,21 +288,13 @@ export function ManutencaoForm({
                 setPecas(next);
               }}
             />
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              placeholder="R$"
+            <CurrencyInput
+              allowEmpty
               className="w-full"
-              value={peca.valorUnitario ?? ""}
-              onChange={(e) => {
+              value={peca.valorUnitario}
+              onValueChange={(valorUnitario) => {
                 const next = [...pecas];
-                next[i] = {
-                  ...next[i],
-                  valorUnitario: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                };
+                next[i] = { ...next[i], valorUnitario };
                 setPecas(next);
               }}
             />

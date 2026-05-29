@@ -12,8 +12,7 @@ export function TiposManutencaoGrid({ tipos }: { tipos: TipoItem[] }) {
   if (tipos.length === 0) {
     return (
       <p className="text-muted-foreground">
-        Nenhum tipo cadastrado. Execute{" "}
-        <code className="text-xs">npm run db:seed:tipos</code>.
+        Nenhum tipo cadastrado. Use o botão acima para criar o primeiro tipo.
       </p>
     );
   }

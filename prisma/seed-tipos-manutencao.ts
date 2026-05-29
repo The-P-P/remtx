@@ -14,6 +14,11 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function seedTiposManutencao() {
+  if (TIPOS_MANUTENCAO_PREVENTIVA.length === 0) {
+    console.log("📋 Catálogo de tipos vazio — nada a cadastrar.");
+    return;
+  }
+
   console.log(`📋 Cadastrando ${TIPOS_MANUTENCAO_PREVENTIVA.length} tipos de manutenção preventiva...`);
 
   let criados = 0;

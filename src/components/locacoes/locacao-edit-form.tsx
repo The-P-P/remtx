@@ -5,6 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
@@ -66,12 +67,10 @@ export function LocacaoEditForm({
         </label>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="valorDiaria">Valor semanal (R$) *</Label>
-        <Input
+        <Label htmlFor="valorDiaria">Valor semanal *</Label>
+        <CurrencyInput
           id="valorDiaria"
           name="valorDiaria"
-          type="number"
-          step="0.01"
           defaultValue={Number(initial.valorDiaria)}
           required
         />

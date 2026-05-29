@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  currencyPositive,
+} from "@/lib/validations/currency";
+import { kmMinZero } from "@/lib/validations/km";
 
 const dateField = z.coerce.date({ message: "Data inválida" });
 
@@ -21,8 +25,8 @@ export const locacaoCreateSchema = z
     dataInicio: dateField,
     dataFimPrevista: dataFimPrevistaOpcional,
     prazoIndeterminado: prazoIndeterminadoField,
-    kmInicio: z.coerce.number().int().min(0, "Km inválido"),
-    valorDiaria: z.coerce.number().positive("Valor semanal inválido"),
+    kmInicio: kmMinZero("Km inválido"),
+    valorDiaria: currencyPositive("Valor semanal inválido"),
     status: z.enum(["RESERVADA", "ATIVA"]).default("RESERVADA"),
     observacoes: z.string().optional(),
     iniciarAgora: z
@@ -60,7 +64,7 @@ export const locacaoUpdateSchema = z
   .object({
     dataFimPrevista: dataFimPrevistaOpcional,
     prazoIndeterminado: prazoIndeterminadoField,
-    valorDiaria: z.coerce.number().positive("Valor semanal inválido"),
+    valorDiaria: currencyPositive("Valor semanal inválido"),
     observacoes: z.string().optional(),
   })
   .transform((d) => ({
@@ -69,7 +73,7 @@ export const locacaoUpdateSchema = z
   }));
 
 export const locacaoFinalizarSchema = z.object({
-  kmFim: z.coerce.number().int().min(0, "Km inválido"),
+  kmFim: kmMinZero("Km inválido"),
   dataFimReal: dateField,
   registrarFinanceiro: z
     .string()
@@ -79,7 +83,7 @@ export const locacaoFinalizarSchema = z.object({
 
 export const parcelaSchema = z.object({
   locacaoId: z.string().min(1),
-  valor: z.coerce.number().positive("Valor inválido"),
+  valor: currencyPositive("Valor inválido"),
   dataVencimento: dateField,
   observacoes: z.string().optional(),
 });

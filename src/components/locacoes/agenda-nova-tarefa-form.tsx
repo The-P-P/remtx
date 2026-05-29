@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TIPO_EVENTO_AGENDA_FORM } from "@/lib/constants/enums";
@@ -211,14 +212,12 @@ export function AgendaNovaTarefaForm({
 
       {mostraValor && (
         <div className="space-y-2">
-          <Label htmlFor="valor">Valor (R$)</Label>
-          <Input
+          <Label htmlFor="valor">Valor</Label>
+          <CurrencyInput
             id="valor"
             name="valor"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={eventoEdit?.valor ?? ""}
+            allowEmpty
+            defaultValue={eventoEdit?.valor}
           />
         </div>
       )}
