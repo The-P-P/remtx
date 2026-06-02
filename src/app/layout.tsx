@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ptBR } from "@clerk/localizations";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { RouteTransition } from "@/components/layout/route-transition";
@@ -45,7 +46,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
       >
         <ThemeProvider>
-          <RouteTransition>{children}</RouteTransition>
+          <Suspense fallback={children}>
+            <RouteTransition>{children}</RouteTransition>
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>
