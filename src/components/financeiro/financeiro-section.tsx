@@ -32,6 +32,7 @@ export function FinanceiroSection({
               {showNovaTransacao && (
                 <Button
                   className="w-full sm:w-auto"
+                  nativeButton={false}
                   render={<Link href={novaTransacaoHref} />}
                 >
                   <Plus className="size-4" />

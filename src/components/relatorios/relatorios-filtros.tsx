@@ -122,6 +122,7 @@ export function RelatoriosFiltros({
         <Button
           type="button"
           variant="ghost"
+          nativeButton={false}
           className="w-full sm:w-auto"
           render={<Link href="/relatorios" />}
         >
