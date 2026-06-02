@@ -20,10 +20,6 @@ export const financiamentoVeiculoSchema = z
       .min(1, "Data da primeira parcela obrigatória")
       .transform((v) => new Date(v + "T12:00:00")),
     observacoes: z.string().optional(),
-  })
-  .refine((d) => d.saldoDevedor <= d.valorFinanciado + 0.01, {
-    message: "Saldo devedor não pode ser maior que o valor financiado",
-    path: ["saldoDevedor"],
   });
 
 export type FinanciamentoVeiculoFormData = z.infer<typeof financiamentoVeiculoSchema>;

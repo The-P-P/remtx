@@ -2,6 +2,7 @@ import type { UserRole } from "@/types/prisma";
 
 export type ClerkPublicMetadata = {
   role?: UserRole;
+  locadoraId?: string;
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

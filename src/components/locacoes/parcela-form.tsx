@@ -1,5 +1,6 @@
 "use client";
 
+import { FormErrorInline } from "@/components/shared/form-field-error";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,7 @@ export function ParcelaForm({ locacaoId }: { locacaoId: string }) {
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-4 sm:items-end">
       <input type="hidden" name="locacaoId" value={locacaoId} />
-      {state.success === false && (
-        <p className="text-sm text-red-600 sm:col-span-4">{state.error}</p>
-      )}
+      {state.success === false && <FormErrorInline error={state.error} />}
       <div className="space-y-2">
         <Label htmlFor="valor">Valor</Label>
         <CurrencyInput id="valor" name="valor" required />

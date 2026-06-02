@@ -75,7 +75,7 @@ export function VeiculoFinanceiroPanel({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
             <KpiCard
               label="Investimento"
               value={formatCurrency(resumo.investimentoTotal)}
@@ -129,7 +129,51 @@ export function VeiculoFinanceiroPanel({
               manutenções e financiamento para ver o histórico aqui.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border">
+            <>
+            <div className="space-y-2 md:hidden">
+              {movimentos.map((m) => (
+                <div
+                  key={m.id}
+                  className="rounded-lg border bg-muted/25 p-3 text-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(m.data), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
+                      </p>
+                      <p className="font-medium">{m.categoria}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ORIGEM_LABEL[m.origem]}
+                      </p>
+                    </div>
+                    <p
+                      className={`shrink-0 font-semibold tabular-nums ${
+                        m.tipo === "entrada"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {m.tipo === "entrada" ? "+" : "−"}
+                      {formatCurrency(m.valor)}
+                    </p>
+                  </div>
+                  {m.descricao && (
+                    <p className="mt-2 truncate text-xs text-muted-foreground">
+                      {m.linkHref ? (
+                        <Link href={m.linkHref} className="hover:underline">
+                          {m.descricao}
+                        </Link>
+                      ) : (
+                        m.descricao
+                      )}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-hidden rounded-lg border md:block">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -200,6 +244,7 @@ export function VeiculoFinanceiroPanel({
                 </table>
               </div>
             </div>
+            </>
           )}
 
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">

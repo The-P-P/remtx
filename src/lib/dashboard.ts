@@ -1,11 +1,11 @@
 import { startOfMonth, endOfMonth } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { calcularAlertaKm } from "@/lib/manutencao-alerts";
-import { ensureCategoriasFinanceirasPadrao } from "@/lib/financeiro-categorias";
+import { requireTenant } from "@/lib/tenant";
 import type { AlertaManutencao } from "@/types/prisma";
 
 export async function getDashboardData() {
-  await ensureCategoriasFinanceirasPadrao();
+  const { locadoraId } = await requireTenant();
 
   const agora = new Date();
   const inicioMes = startOfMonth(agora);
@@ -22,12 +22,20 @@ export async function getDashboardData() {
     ultimasLocacoes,
     ultimasTransacoes,
   ] = await Promise.all([
-    prisma.veiculo.count({ where: { status: { not: "INATIVO" } } }),
-    prisma.veiculo.count({ where: { status: "DISPONIVEL" } }),
-    prisma.veiculo.count({ where: { status: "ALUGADO" } }),
-    prisma.veiculo.count({ where: { status: "EM_MANUTENCAO" } }),
+    prisma.veiculo.count({
+      where: { locadoraId, status: { not: "INATIVO" } },
+    }),
+    prisma.veiculo.count({
+      where: { locadoraId, status: "DISPONIVEL" },
+    }),
+    prisma.veiculo.count({
+      where: { locadoraId, status: "ALUGADO" },
+    }),
+    prisma.veiculo.count({
+      where: { locadoraId, status: "EM_MANUTENCAO" },
+    }),
     prisma.veiculo.findMany({
-      where: { status: { not: "INATIVO" } },
+      where: { locadoraId, status: { not: "INATIVO" } },
       select: {
         id: true,
         placa: true,
@@ -39,7 +47,7 @@ export async function getDashboardData() {
       },
     }),
     prisma.problemaCronico.findMany({
-      where: { ativo: true },
+      where: { ativo: true, veiculo: { locadoraId } },
       include: {
         veiculo: { select: { placa: true, marca: true, modelo: true } },
       },
@@ -47,9 +55,13 @@ export async function getDashboardData() {
       orderBy: { dataRegistro: "desc" },
     }),
     prisma.transacaoFinanceira.findMany({
-      where: { data: { gte: inicioMes, lte: fimMes } },
+      where: {
+        data: { gte: inicioMes, lte: fimMes },
+        categoria: { locadoraId },
+      },
     }),
     prisma.locacao.findMany({
+      where: { locadoraId },
       take: 5,
       orderBy: { createdAt: "desc" },
       include: {
@@ -58,6 +70,7 @@ export async function getDashboardData() {
       },
     }),
     prisma.transacaoFinanceira.findMany({
+      where: { categoria: { locadoraId } },
       take: 5,
       orderBy: { data: "desc" },
       include: { categoria: { select: { nome: true } } },

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,16 @@ import { format } from "date-fns";
 import { STATUS_VEICULO_LABEL } from "@/lib/constants/enums";
 import type { StatusVeiculo, PorteVeiculo } from "@/types/prisma";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
+import {
+  FormErrorBanner,
+  FormFieldError,
+} from "@/components/shared/form-field-error";
 import { PorteVeiculoPicker } from "@/components/veiculos/porte-veiculo-picker";
 import {
   VeiculoFinanciamentoFields,
   type FinanciamentoInitial,
 } from "@/components/veiculos/veiculo-financiamento-fields";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import type { FormAction, FormState } from "@/types/form";
 
 const selectClass =
@@ -31,6 +37,7 @@ type VeiculoFormProps = {
     modelo: string;
     ano: number;
     cor?: string | null;
+    renavam?: string | null;
     porte?: PorteVeiculo;
     kmAtual: number;
     kmProximaRevisao: number;
@@ -52,17 +59,55 @@ export function VeiculoForm({
   cancelHref,
   financiamentoInitial,
 }: VeiculoFormProps) {
+  const defaults = useMemo(
+    () => ({
+      placa: initial?.placa ?? "",
+      status: initial?.status ?? "DISPONIVEL",
+      apelido: initial?.apelido ?? "",
+      marca: initial?.marca ?? "",
+      modelo: initial?.modelo ?? "",
+      ano: initial?.ano != null ? String(initial.ano) : "",
+      renavam: initial?.renavam ?? "",
+      kmAtual: initial?.kmAtual != null ? String(initial.kmAtual) : "0",
+      kmProximaRevisao:
+        initial?.kmProximaRevisao != null
+          ? String(initial.kmProximaRevisao)
+          : "",
+      valorCompra:
+        initial?.valorCompra != null ? String(Number(initial.valorCompra)) : "",
+      dataCompra: initial?.dataCompra
+        ? format(initial.dataCompra, "yyyy-MM-dd")
+        : "",
+      ipvaVencimento: initial?.ipvaVencimento
+        ? format(initial.ipvaVencimento, "yyyy-MM-dd")
+        : "",
+      observacoes: initial?.observacoes ?? "",
+    }),
+    [initial]
+  );
+
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     action,
     { success: true }
   );
 
+  const { val, num, fieldError, fieldClass, capture, setDraft } = useFormDraft(
+    state,
+    defaults
+  );
+
+  const syncForm = (form: HTMLFormElement | null) => {
+    if (form) capture(form);
+  };
+
   return (
-    <form action={formAction} className="w-full max-w-2xl space-y-4">
+    <form
+      action={formAction}
+      onSubmit={(e) => capture(e.currentTarget)}
+      className="w-full max-w-2xl space-y-4"
+    >
       {state.success === false && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
+        <FormErrorBanner error={state.error} fieldErrors={state.fieldErrors} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -71,19 +116,22 @@ export function VeiculoForm({
           <Input
             id="placa"
             name="placa"
-            defaultValue={initial?.placa}
+            value={val("placa")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
             placeholder="ABC1D23"
             required
-            className="uppercase"
+            className={`uppercase ${fieldClass(!!fieldError("placa"))}`}
           />
+          <FormFieldError message={fieldError("placa")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="status">Status *</Label>
           <select
             id="status"
             name="status"
-            defaultValue={initial?.status ?? "DISPONIVEL"}
-            className={selectClass}
+            value={val("status", "DISPONIVEL")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            className={fieldClass(!!fieldError("status"), selectClass)}
           >
             {(Object.keys(STATUS_VEICULO_LABEL) as StatusVeiculo[]).map((s) => (
               <option key={s} value={s}>
@@ -91,13 +139,15 @@ export function VeiculoForm({
               </option>
             ))}
           </select>
+          <FormFieldError message={fieldError("status")} />
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="apelido">Apelido</Label>
           <Input
             id="apelido"
             name="apelido"
-            defaultValue={initial?.apelido ?? ""}
+            value={val("apelido")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
             placeholder="Ex.: Uno prata, Carro reserva..."
             maxLength={60}
           />
@@ -107,11 +157,27 @@ export function VeiculoForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="marca">Marca *</Label>
-          <Input id="marca" name="marca" defaultValue={initial?.marca} required />
+          <Input
+            id="marca"
+            name="marca"
+            value={val("marca")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            required
+            className={fieldClass(!!fieldError("marca"))}
+          />
+          <FormFieldError message={fieldError("marca")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="modelo">Modelo *</Label>
-          <Input id="modelo" name="modelo" defaultValue={initial?.modelo} required />
+          <Input
+            id="modelo"
+            name="modelo"
+            value={val("modelo")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            required
+            className={fieldClass(!!fieldError("modelo"))}
+          />
+          <FormFieldError message={fieldError("modelo")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ano">Ano *</Label>
@@ -119,8 +185,21 @@ export function VeiculoForm({
             id="ano"
             name="ano"
             type="number"
-            defaultValue={initial?.ano}
+            value={val("ano")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
             required
+            className={fieldClass(!!fieldError("ano"))}
+          />
+          <FormFieldError message={fieldError("ano")} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="renavam">RENAVAM</Label>
+          <Input
+            id="renavam"
+            name="renavam"
+            value={val("renavam")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            placeholder="Opcional — usado no contrato Plano Conquista"
           />
         </div>
       </div>
@@ -128,7 +207,7 @@ export function VeiculoForm({
       <PorteVeiculoPicker
         defaultPorte={initial?.porte}
         defaultCor={initial?.cor}
-        defaultModelo={initial?.modelo}
+        defaultModelo={val("modelo") || initial?.modelo}
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -137,18 +216,31 @@ export function VeiculoForm({
           <KmInput
             id="kmAtual"
             name="kmAtual"
-            defaultValue={initial?.kmAtual ?? 0}
+            value={num("kmAtual", 0)}
+            onValueChange={(v) =>
+              setDraft((prev) => ({ ...prev, kmAtual: String(v ?? "") }))
+            }
             required
+            className={fieldClass(!!fieldError("kmAtual"))}
           />
+          <FormFieldError message={fieldError("kmAtual")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="kmProximaRevisao">Km próxima revisão *</Label>
           <KmInput
             id="kmProximaRevisao"
             name="kmProximaRevisao"
-            defaultValue={initial?.kmProximaRevisao}
+            value={num("kmProximaRevisao")}
+            onValueChange={(v) =>
+              setDraft((prev) => ({
+                ...prev,
+                kmProximaRevisao: String(v ?? ""),
+              }))
+            }
             required
+            className={fieldClass(!!fieldError("kmProximaRevisao"))}
           />
+          <FormFieldError message={fieldError("kmProximaRevisao")} />
         </div>
       </div>
 
@@ -160,10 +252,9 @@ export function VeiculoForm({
             <CurrencyInput
               id="valorCompra"
               name="valorCompra"
-              defaultValue={
-                initial?.valorCompra != null
-                  ? Number(initial.valorCompra)
-                  : undefined
+              value={num("valorCompra")}
+              onValueChange={(v) =>
+                setDraft((prev) => ({ ...prev, valorCompra: String(v ?? "") }))
               }
             />
             <p className="text-xs text-muted-foreground">
@@ -176,11 +267,8 @@ export function VeiculoForm({
               id="dataCompra"
               name="dataCompra"
               type="date"
-              defaultValue={
-                initial?.dataCompra
-                  ? format(initial.dataCompra, "yyyy-MM-dd")
-                  : ""
-              }
+              value={val("dataCompra")}
+              onChange={(e) => syncForm(e.currentTarget.form)}
             />
           </div>
         </div>
@@ -192,11 +280,8 @@ export function VeiculoForm({
           id="ipvaVencimento"
           name="ipvaVencimento"
           type="date"
-          defaultValue={
-            initial?.ipvaVencimento
-              ? format(initial.ipvaVencimento, "yyyy-MM-dd")
-              : ""
-          }
+          value={val("ipvaVencimento")}
+          onChange={(e) => syncForm(e.currentTarget.form)}
         />
         <p className="text-xs text-muted-foreground">
           Aparece na agenda todo ano nesta data.
@@ -208,7 +293,8 @@ export function VeiculoForm({
         <Textarea
           id="observacoes"
           name="observacoes"
-          defaultValue={initial?.observacoes ?? ""}
+          value={val("observacoes")}
+          onChange={(e) => syncForm(e.currentTarget.form)}
           rows={3}
         />
       </div>

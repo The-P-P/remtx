@@ -1,5 +1,6 @@
 "use client";
 
+import { FormErrorInline } from "@/components/shared/form-field-error";
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -35,11 +36,7 @@ export function LocacaoEditForm({
 
   return (
     <form action={formAction} className="max-w-md space-y-4">
-      {state.success === false && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      )}
+      {state.success === false && <FormErrorInline error={state.error} />}
 
       <div className="space-y-2">
         <Label htmlFor="dataFimPrevista">Devolução prevista</Label>

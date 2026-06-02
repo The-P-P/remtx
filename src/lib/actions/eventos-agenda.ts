@@ -1,8 +1,10 @@
 "use server";
 
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import { eventoAgendaSchema } from "@/lib/validations/evento-agenda";
 
 export type ActionResult<T = void> =
@@ -10,18 +12,18 @@ export type ActionResult<T = void> =
   | { success: false; error: string };
 
 async function assertLocacaoAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "locacoes")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "locacoes")) {
     throw new Error("Sem permissão para gerenciar a agenda");
   }
-  return user;
+  return tenant;
 }
 
 export async function createEventoAgenda(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
     const parsed = eventoAgendaSchema.safeParse({
       titulo: formData.get("titulo"),
       descricao: formData.get("descricao") || undefined,
@@ -46,6 +48,7 @@ export async function createEventoAgenda(
     const evento = await prisma.eventoAgenda.create({
       data: {
         ...rest,
+        locadoraId: tenant.locadoraId,
         valor: valor ?? undefined,
         veiculoId: veiculoId || null,
         clienteId: clienteId || null,
@@ -58,7 +61,7 @@ export async function createEventoAgenda(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao criar lembrete",
+      error: friendlyErrorMessage(e, "Erro ao criar lembrete"),
     };
   }
 }
@@ -68,7 +71,14 @@ export async function toggleEventoConcluido(
   concluido: boolean
 ): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
+    const existente = await prisma.eventoAgenda.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Evento não encontrado" };
+    }
     await prisma.eventoAgenda.update({
       where: { id },
       data: { concluido },
@@ -78,7 +88,7 @@ export async function toggleEventoConcluido(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar",
+      error: friendlyErrorMessage(e, "Erro ao atualizar"),
     };
   }
 }
@@ -88,9 +98,11 @@ export async function updateEventoAgenda(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
-    const existente = await prisma.eventoAgenda.findUnique({ where: { id } });
+    const existente = await prisma.eventoAgenda.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+    });
     if (!existente) {
       return { success: false, error: "Tarefa não encontrada" };
     }
@@ -132,21 +144,28 @@ export async function updateEventoAgenda(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar tarefa",
+      error: friendlyErrorMessage(e, "Erro ao atualizar tarefa"),
     };
   }
 }
 
 export async function deleteEventoAgenda(id: string): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
+    const existente = await prisma.eventoAgenda.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Tarefa não encontrada" };
+    }
     await prisma.eventoAgenda.delete({ where: { id } });
     revalidatePath("/locacoes");
     return { success: true };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir",
+      error: friendlyErrorMessage(e, "Erro ao excluir"),
     };
   }
 }

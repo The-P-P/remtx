@@ -8,4 +8,8 @@ export type {
   FormaPagamento,
   AlertaManutencao,
   GravidadeProblema,
+  TipoModeloContrato,
+  StatusContratoDocumento,
+  StatusPlanoConquista,
+  PeriodicidadePagamento,
 } from "@/generated/prisma/enums";

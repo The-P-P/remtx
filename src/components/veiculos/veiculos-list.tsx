@@ -24,7 +24,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid min-w-0 max-w-full grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
       {veiculos.map((v) => {
         const corHex = corParaHex(v.cor);
         const porte = resolverPorte(v.porte, v.modelo);
@@ -32,7 +32,7 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
         return (
           <Card
             key={v.id}
-            className={`overflow-hidden py-0 gap-0 ${v.status === "INATIVO" ? "opacity-65" : ""}`}
+            className={`min-w-0 max-w-full overflow-hidden py-0 gap-0 ${v.status === "INATIVO" ? "opacity-65" : ""}`}
           >
             <VeiculoSilhouette
               porte={porte}
@@ -40,18 +40,22 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
               corLabel={v.cor}
               compact
             />
-          <CardContent className="space-y-3 p-4 pt-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-mono text-lg font-bold tracking-wide">{v.placa}</p>
+          <CardContent className="min-w-0 space-y-3 p-3 pt-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="font-mono text-base font-bold tracking-wide sm:text-lg">
+                  {v.placa}
+                </p>
                 {v.apelido && (
-                  <p className="text-sm font-medium text-primary">{v.apelido}</p>
+                  <p className="truncate text-sm font-medium text-primary">
+                    {v.apelido}
+                  </p>
                 )}
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground break-words">
                   {v.marca} {v.modelo} ({v.ano})
                 </p>
               </div>
-              <div className="flex shrink-0 gap-1">
+              <div className="flex shrink-0 gap-1 self-end sm:self-start">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -89,8 +93,13 @@ export function VeiculosList({ veiculos }: { veiculos: VeiculoItem[] }) {
                 kmProximaRevisao={v.kmProximaRevisao}
               />
               {v.financiamento?.ativo && (
-                <Badge variant="outline" className="text-xs">
-                  Financiado · {v.financiamento.parcelas.length} parcela(s) restante(s)
+                <Badge variant="outline" className="max-w-full text-xs whitespace-normal">
+                  <span className="sm:hidden">
+                    Financiado · {v.financiamento.parcelas.length} parc.
+                  </span>
+                  <span className="hidden sm:inline">
+                    Financiado · {v.financiamento.parcelas.length} parcela(s) restante(s)
+                  </span>
                 </Badge>
               )}
             </div>

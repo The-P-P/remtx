@@ -1,5 +1,6 @@
 "use client";
 
+import { FormErrorInline } from "@/components/shared/form-field-error";
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -73,11 +74,7 @@ export function TransacaoForm({
         </>
       )}
 
-      {state.success === false && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
-          {state.error}
-        </p>
-      )}
+      {state.success === false && <FormErrorInline error={state.error} />}
 
       <div className="space-y-2">
         <Label>Tipo *</Label>

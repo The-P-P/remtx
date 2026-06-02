@@ -30,7 +30,10 @@ export function RouteTransition({ children }: { children: React.ReactNode }) {
             : "opacity-0"
         )}
       />
-      <div key={routeKey} className="animate-route-enter will-change-transform">
+      <div
+        key={routeKey}
+        className="animate-route-enter min-w-0 max-w-full will-change-transform"
+      >
         {children}
       </div>
     </>

@@ -20,6 +20,8 @@ export const clienteSchema = z.object({
     .or(z.literal(""))
     .transform((v) => (v === "" ? undefined : v)),
   endereco: z.string().optional(),
+  rg: z.string().optional(),
+  rgOrgao: z.string().optional(),
   observacoes: z.string().optional(),
 });
 

@@ -13,6 +13,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { deleteVeiculoAction } from "@/lib/actions/form-actions";
+import { FormErrorInline } from "@/components/shared/form-field-error";
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 
 interface VeiculoDeleteButtonProps {
   id: string;
@@ -41,7 +43,7 @@ export function VeiculoDeleteButton({
       try {
         await deleteVeiculoAction(id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro ao excluir");
+        setError(friendlyErrorMessage(e, "Erro ao excluir"));
       }
     });
   }
@@ -103,7 +105,11 @@ export function VeiculoDeleteButton({
           <SheetDescription>{aviso}</SheetDescription>
         </SheetHeader>
         <p className="px-4 text-sm font-medium">{descricao}</p>
-        {error && <p className="px-4 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="px-4">
+            <FormErrorInline error={error} />
+          </div>
+        )}
         <SheetFooter className="flex-row gap-2 sm:justify-end">
           <Button
             type="button"

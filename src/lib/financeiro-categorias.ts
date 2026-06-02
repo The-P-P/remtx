@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 
 type Tx = Prisma.TransactionClient;
 
-/** Categorias criadas automaticamente (upsert por nome). */
+/** Categorias criadas sob demanda (ao usar o financeiro), por locadora. */
 export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = [
-  // —— Entradas ——
   { nome: "Locação de veículos", tipo: "ENTRADA" },
   { nome: "Juros e multas de atraso", tipo: "ENTRADA" },
   { nome: "Taxa de entrega e retirada", tipo: "ENTRADA" },
@@ -17,8 +16,6 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
   { nome: "Reembolsos recebidos", tipo: "ENTRADA" },
   { nome: "Rendimentos financeiros", tipo: "ENTRADA" },
   { nome: "Outras receitas", tipo: "ENTRADA" },
-
-  // —— Despesas operacionais da frota ——
   { nome: "Manutenção de frota", tipo: "SAIDA" },
   { nome: "Combustível", tipo: "SAIDA" },
   { nome: "Oficina e mão de obra", tipo: "SAIDA" },
@@ -34,8 +31,6 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
   { nome: "Multas da frota", tipo: "SAIDA" },
   { nome: "Sinistro e franquia paga", tipo: "SAIDA" },
   { nome: "Transporte e guincho", tipo: "SAIDA" },
-
-  // —— Despesas administrativas e comerciais ——
   { nome: "Salários e encargos", tipo: "SAIDA" },
   { nome: "Aluguel do pátio", tipo: "SAIDA" },
   { nome: "Energia, água e internet", tipo: "SAIDA" },
@@ -52,22 +47,23 @@ export const CATEGORIAS_PADRAO: { nome: string; tipo: "ENTRADA" | "SAIDA" }[] = 
   { nome: "Outras despesas", tipo: "SAIDA" },
 ];
 
-/** Nome fixo usado nos pagamentos de locação (agenda). */
 export const CATEGORIA_LOCACAO_NOME = "Locação de veículos";
 export const CATEGORIA_CAUCAO_NOME = "Caução e depósitos";
 export const CATEGORIA_MANUTENCAO_NOME = "Manutenção de frota";
 export const CATEGORIA_FINANCIAMENTO_NOME = "Parcela de financiamento";
 
-/** Garante categorias padrão no banco (idempotente). */
 export async function ensureCategoriasFinanceirasPadrao(
+  locadoraId: string,
   client: Tx | typeof prisma = prisma
 ) {
   const results = await Promise.all(
     CATEGORIAS_PADRAO.map((c) =>
       client.categoriaFinanceira.upsert({
-        where: { nome: c.nome },
+        where: {
+          locadoraId_nome: { locadoraId, nome: c.nome },
+        },
         update: { tipo: c.tipo },
-        create: { nome: c.nome, tipo: c.tipo },
+        create: { locadoraId, nome: c.nome, tipo: c.tipo },
       })
     )
   );
@@ -75,18 +71,20 @@ export async function ensureCategoriasFinanceirasPadrao(
 }
 
 export async function getCategoriaLocacaoVeiculos(
+  locadoraId: string,
   client: Tx | typeof prisma = prisma
 ) {
-  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  const categorias = await ensureCategoriasFinanceirasPadrao(locadoraId, client);
   return (
     categorias.find((c) => c.nome === CATEGORIA_LOCACAO_NOME) ?? categorias[0]
   );
 }
 
 export async function getCategoriaManutencaoFrota(
+  locadoraId: string,
   client: Tx | typeof prisma = prisma
 ) {
-  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  const categorias = await ensureCategoriasFinanceirasPadrao(locadoraId, client);
   return (
     categorias.find((c) => c.nome === CATEGORIA_MANUTENCAO_NOME) ??
     categorias.find((c) => c.tipo === "SAIDA") ??
@@ -95,9 +93,10 @@ export async function getCategoriaManutencaoFrota(
 }
 
 export async function getCategoriaCaucao(
+  locadoraId: string,
   client: Tx | typeof prisma = prisma
 ) {
-  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  const categorias = await ensureCategoriasFinanceirasPadrao(locadoraId, client);
   return (
     categorias.find((c) => c.nome === CATEGORIA_CAUCAO_NOME) ??
     categorias.find((c) => c.tipo === "ENTRADA") ??
@@ -106,9 +105,10 @@ export async function getCategoriaCaucao(
 }
 
 export async function getCategoriaFinanciamentoVeiculo(
+  locadoraId: string,
   client: Tx | typeof prisma = prisma
 ) {
-  const categorias = await ensureCategoriasFinanceirasPadrao(client);
+  const categorias = await ensureCategoriasFinanceirasPadrao(locadoraId, client);
   return (
     categorias.find((c) => c.nome === CATEGORIA_FINANCIAMENTO_NOME) ??
     categorias.find((c) => c.tipo === "SAIDA") ??

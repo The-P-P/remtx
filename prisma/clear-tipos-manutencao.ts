@@ -12,6 +12,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const LOCADORA_SEED_ID = "locadora-legado";
 const TIPO_GENERICO = "Manutenção geral";
 
 async function main() {
@@ -26,9 +27,15 @@ async function main() {
 
   if (totalManutencoes > 0) {
     const fallback = await prisma.tipoManutencao.upsert({
-      where: { nome: TIPO_GENERICO },
+      where: {
+        locadoraId_nome: {
+          locadoraId: LOCADORA_SEED_ID,
+          nome: TIPO_GENERICO,
+        },
+      },
       update: { ativo: true, intervaloKm: 10000 },
       create: {
+        locadoraId: LOCADORA_SEED_ID,
         nome: TIPO_GENERICO,
         descricao: "Tipo genérico para manutenções já registradas",
         intervaloKm: 10000,

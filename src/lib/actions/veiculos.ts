@@ -2,26 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import { veiculoSchema, problemaCronicoSchema } from "@/lib/validations/veiculo";
 import { parseFinanciamentoFromFormData } from "@/lib/validations/financiamento-veiculo";
 import { criarFinanciamentoVeiculo } from "@/lib/actions/financiamento-veiculo";
 import { atualizarFinanciamentoBasico } from "@/lib/actions/financiamento-veiculo";
-export type ActionResult<T = void> =
-  | { success: true; data?: T }
-  | { success: false; error: string };
+import { zodFieldErrors } from "@/lib/form/state";
+import type { ActionResult } from "@/lib/actions/action-result";
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 
 async function assertVeiculoAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "veiculos")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "veiculos")) {
     throw new Error("Sem permissão para gerenciar veículos");
   }
-  return user;
+  return tenant;
 }
 
 export async function getVeiculos(status?: string) {
+  const { locadoraId } = await requireTenant();
   return prisma.veiculo.findMany({
-    where: status ? { status: status as never } : undefined,
+    where: {
+      locadoraId,
+      ...(status ? { status: status as never } : {}),
+    },
     orderBy: { placa: "asc" },
     include: {
       financiamento: {
@@ -51,8 +56,9 @@ export async function getVeiculos(status?: string) {
 }
 
 export async function getVeiculoById(id: string) {
-  return prisma.veiculo.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.veiculo.findFirst({
+    where: { id, locadoraId },
     include: {
       manutencoes: {
         orderBy: { dataRealizada: "desc" },
@@ -83,7 +89,7 @@ export async function createVeiculo(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
     const parsed = veiculoSchema.safeParse({
       placa: formData.get("placa"),
       apelido: formData.get("apelido") || undefined,
@@ -91,6 +97,7 @@ export async function createVeiculo(
       modelo: formData.get("modelo"),
       ano: formData.get("ano"),
       cor: formData.get("cor") || undefined,
+      renavam: formData.get("renavam") || undefined,
       porte: formData.get("porte"),
       valorCompra: formData.get("valorCompra") || undefined,
       dataCompra: formData.get("dataCompra") || undefined,
@@ -102,7 +109,7 @@ export async function createVeiculo(
     });
 
     if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos", fieldErrors: zodFieldErrors(parsed.error) };
     }
 
     const financiamentoInput = parseFinanciamentoFromFormData(formData);
@@ -113,7 +120,9 @@ export async function createVeiculo(
       };
     }
 
-    const veiculo = await prisma.veiculo.create({ data: parsed.data });
+    const veiculo = await prisma.veiculo.create({
+      data: { ...parsed.data, locadoraId: tenant.locadoraId },
+    });
 
     if (financiamentoInput.emFinanciamento && financiamentoInput.data) {
       await criarFinanciamentoVeiculo(veiculo.id, financiamentoInput.data);
@@ -123,7 +132,7 @@ export async function createVeiculo(
     revalidatePath("/");
     return { success: true, data: { id: veiculo.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao criar veículo";
+    const msg = friendlyErrorMessage(e, "Erro ao criar veículo");
     if (msg.includes("Unique constraint")) {
       return { success: false, error: "Placa já cadastrada" };
     }
@@ -136,7 +145,7 @@ export async function updateVeiculo(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
     const parsed = veiculoSchema.safeParse({
       placa: formData.get("placa"),
       apelido: formData.get("apelido") || undefined,
@@ -144,6 +153,7 @@ export async function updateVeiculo(
       modelo: formData.get("modelo"),
       ano: formData.get("ano"),
       cor: formData.get("cor") || undefined,
+      renavam: formData.get("renavam") || undefined,
       porte: formData.get("porte"),
       valorCompra: formData.get("valorCompra") || undefined,
       dataCompra: formData.get("dataCompra") || undefined,
@@ -155,7 +165,15 @@ export async function updateVeiculo(
     });
 
     if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos", fieldErrors: zodFieldErrors(parsed.error) };
+    }
+
+    const existente = await prisma.veiculo.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Veículo não encontrado" };
     }
 
     const financiamentoInput = parseFinanciamentoFromFormData(formData);
@@ -192,17 +210,17 @@ export async function updateVeiculo(
     revalidatePath("/");
     return { success: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao atualizar veículo";
+    const msg = friendlyErrorMessage(e, "Erro ao atualizar veículo");
     return { success: false, error: msg };
   }
 }
 
 export async function deleteVeiculo(id: string): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
 
-    const veiculo = await prisma.veiculo.findUnique({
-      where: { id },
+    const veiculo = await prisma.veiculo.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
       select: { placa: true, status: true },
     });
     if (!veiculo) {
@@ -210,7 +228,11 @@ export async function deleteVeiculo(id: string): Promise<ActionResult> {
     }
 
     const locacaoAtiva = await prisma.locacao.findFirst({
-      where: { veiculoId: id, status: { in: ["ATIVA", "RESERVADA"] } },
+      where: {
+        locadoraId: tenant.locadoraId,
+        veiculoId: id,
+        status: { in: ["ATIVA", "RESERVADA"] },
+      },
     });
     if (locacaoAtiva) {
       return {
@@ -220,7 +242,7 @@ export async function deleteVeiculo(id: string): Promise<ActionResult> {
     }
 
     const totalLocacoes = await prisma.locacao.count({
-      where: { veiculoId: id },
+      where: { locadoraId: tenant.locadoraId, veiculoId: id },
     });
 
     if (totalLocacoes === 0) {
@@ -240,22 +262,27 @@ export async function deleteVeiculo(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir veículo",
+      error: friendlyErrorMessage(e, "Erro ao excluir veículo"),
     };
   }
 }
 
 export async function getVeiculoDeleteInfo(id: string) {
+  const { locadoraId } = await requireTenant();
   const [veiculo, locacaoAtiva, totalLocacoes] = await Promise.all([
-    prisma.veiculo.findUnique({
-      where: { id },
+    prisma.veiculo.findFirst({
+      where: { id, locadoraId },
       select: { placa: true, marca: true, modelo: true, status: true },
     }),
     prisma.locacao.findFirst({
-      where: { veiculoId: id, status: { in: ["ATIVA", "RESERVADA"] } },
+      where: {
+        locadoraId,
+        veiculoId: id,
+        status: { in: ["ATIVA", "RESERVADA"] },
+      },
       select: { id: true },
     }),
-    prisma.locacao.count({ where: { veiculoId: id } }),
+    prisma.locacao.count({ where: { locadoraId, veiculoId: id } }),
   ]);
 
   if (!veiculo) return null;
@@ -272,14 +299,21 @@ export async function createProblemaCronico(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
     const parsed = problemaCronicoSchema.safeParse({
       veiculoId: formData.get("veiculoId"),
       descricao: formData.get("descricao"),
       gravidade: formData.get("gravidade"),
     });
     if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+      return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos", fieldErrors: zodFieldErrors(parsed.error) };
+    }
+    const veiculo = await prisma.veiculo.findFirst({
+      where: { id: parsed.data.veiculoId, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!veiculo) {
+      return { success: false, error: "Veículo não encontrado" };
     }
     await prisma.problemaCronico.create({ data: parsed.data });
     revalidatePath(`/veiculos/${parsed.data.veiculoId}`);
@@ -288,7 +322,7 @@ export async function createProblemaCronico(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao registrar problema",
+      error: friendlyErrorMessage(e, "Erro ao registrar problema"),
     };
   }
 }
@@ -299,7 +333,14 @@ export async function toggleProblemaCronico(
   ativo: boolean
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
+    const problema = await prisma.problemaCronico.findFirst({
+      where: { id, veiculo: { locadoraId: tenant.locadoraId } },
+      select: { id: true },
+    });
+    if (!problema) {
+      return { success: false, error: "Problema não encontrado" };
+    }
     await prisma.problemaCronico.update({ where: { id }, data: { ativo } });
     revalidatePath(`/veiculos/${veiculoId}`);
     revalidatePath("/");
@@ -307,7 +348,7 @@ export async function toggleProblemaCronico(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar problema",
+      error: friendlyErrorMessage(e, "Erro ao atualizar problema"),
     };
   }
 }

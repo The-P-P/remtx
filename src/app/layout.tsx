@@ -23,6 +23,12 @@ export const metadata: Metadata = {
   description: "REMTX — Sistema de gestão para locadora de veículos",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -49,5 +55,15 @@ export default function RootLayout({
     return body;
   }
 
-  return <ClerkProvider localization={ptBR}>{body}</ClerkProvider>;
+  return (
+    <ClerkProvider
+      localization={ptBR}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+    >
+      {body}
+    </ClerkProvider>
+  );
 }

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import {
-  ensureCategoriasFinanceirasPadrao,
   getCategoriaCaucao,
   getCategoriaLocacaoVeiculos,
 } from "@/lib/financeiro-categorias";
@@ -11,13 +10,12 @@ import {
 import { parseDateInput } from "@/lib/utils";
 
 /** Cria lançamentos no financeiro para parcelas/cauções já marcadas como pagas. */
-export async function criarLancamentosFaltantesPagamentos() {
-  await ensureCategoriasFinanceirasPadrao();
-
+export async function criarLancamentosFaltantesPagamentos(locadoraId: string) {
   const parcelasSemLancamento = await prisma.parcelaLocacao.findMany({
     where: {
       dataPagamento: { not: null },
       transacaoFinanceira: null,
+      locacao: { locadoraId },
     },
     include: {
       locacao: {
@@ -38,7 +36,7 @@ export async function criarLancamentosFaltantesPagamentos() {
         : "";
 
     await prisma.$transaction(async (tx) => {
-      const categoria = await getCategoriaLocacaoVeiculos(tx);
+      const categoria = await getCategoriaLocacaoVeiculos(locadoraId, tx);
       await sincronizarLancamentoParcela(tx, {
         categoriaId: categoria.id,
         tipo: "ENTRADA",
@@ -51,10 +49,11 @@ export async function criarLancamentosFaltantesPagamentos() {
     });
   }
 
-  const categoriaCaucao = await getCategoriaCaucao(prisma);
+  const categoriaCaucao = await getCategoriaCaucao(locadoraId, prisma);
 
   const locacoesCaucaoSemLancamento = await prisma.locacao.findMany({
     where: {
+      locadoraId,
       caucaoPaga: true,
       valorCaucao: { gt: 0 },
     },
@@ -78,7 +77,7 @@ export async function criarLancamentosFaltantesPagamentos() {
     const data = parseDateInput(loc.caucaoDataPagamento ?? loc.dataInicio);
 
     await prisma.$transaction(async (tx) => {
-      const categoria = await getCategoriaCaucao(tx);
+      const categoria = await getCategoriaCaucao(locadoraId, tx);
       await sincronizarLancamentoCaucao(tx, {
         categoriaId: categoria.id,
         tipo: "ENTRADA",

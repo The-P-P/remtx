@@ -1,10 +1,12 @@
 "use server";
 
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 import { revalidatePath } from "next/cache";
 import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { dateKey, parseDateInput } from "@/lib/utils";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant, type TenantContext } from "@/lib/tenant";
 import { atualizarJurosParcelasPendentes } from "@/lib/parcelas-juros";
 import { removerParcelasPendentesDuplicadas } from "@/lib/parcelas-semanais";
 import {
@@ -13,6 +15,10 @@ import {
   getCategoriaLocacaoVeiculos,
 } from "@/lib/financeiro-categorias";
 import { caucaoPendente } from "@/lib/caucao-locacao";
+import {
+  atualizarPlanoConquistaParcelaPaga,
+  marcarAdesaoPlanoConquistaPaga,
+} from "@/lib/contratos/plano-conquista";
 import {
   sincronizarLancamentoCaucao,
   sincronizarLancamentoParcela,
@@ -28,12 +34,16 @@ export type ActionResult<T = void> =
   | { success: true; data?: T }
   | { success: false; error: string };
 
-async function assertAgendaAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "locacoes")) {
+async function assertAgendaAccess(): Promise<TenantContext> {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "locacoes")) {
     throw new Error("Sem permissão para gerenciar a agenda");
   }
-  return user;
+  return tenant;
+}
+
+function conclusaoWhere(locadoraId: string, chave: string) {
+  return { locadoraId_chave: { locadoraId, chave } };
 }
 
 function revalidateAgenda() {
@@ -95,7 +105,7 @@ export async function concluirTarefaAgenda(
   referenciaId: string
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
     if (
       chave.startsWith("parcela-") ||
@@ -113,8 +123,8 @@ export async function concluirTarefaAgenda(
       !chave.startsWith("ipva-") &&
       !chave.startsWith("manutencao-")
     ) {
-      const evento = await prisma.eventoAgenda.findUnique({
-        where: { id: referenciaId },
+      const evento = await prisma.eventoAgenda.findFirst({
+        where: { id: referenciaId, locadoraId: tenant.locadoraId },
       });
       if (!evento) {
         return { success: false, error: "Evento não encontrado" };
@@ -127,10 +137,14 @@ export async function concluirTarefaAgenda(
       return { success: true };
     }
 
-    const dataPrevista = await extrairDataPrevistaDaChave(chave);
+    const dataPrevista = await extrairDataPrevistaDaChave(
+      chave,
+      tenant.locadoraId
+    );
     await prisma.conclusaoAgenda.upsert({
-      where: { chave },
+      where: conclusaoWhere(tenant.locadoraId, chave),
       create: {
+        locadoraId: tenant.locadoraId,
         chave,
         tipo: tipo as never,
         dataPrevista,
@@ -148,7 +162,7 @@ export async function concluirTarefaAgenda(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao concluir tarefa",
+      error: friendlyErrorMessage(e, "Erro ao concluir tarefa"),
     };
   }
 }
@@ -158,20 +172,20 @@ export async function desfazerTarefaAgenda(
   referenciaId: string
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
     if (chave.startsWith("financiamento-")) {
       return estornarPagamentoParcelaFinanciamento(referenciaId);
     }
 
     if (chave.startsWith("caucao-")) {
-      const locacao = await prisma.locacao.findUnique({
-        where: { id: referenciaId },
+      const locacao = await prisma.locacao.findFirst({
+        where: { id: referenciaId, locadoraId: tenant.locadoraId },
       });
       if (!locacao?.caucaoPaga) {
         return { success: false, error: "Caução não está registrada como paga" };
       }
-      const categoria = await getCategoriaCaucao();
+      const categoria = await getCategoriaCaucao(tenant.locadoraId);
       await prisma.$transaction(async (tx) => {
         await tx.locacao.update({
           where: { id: referenciaId },
@@ -205,7 +219,7 @@ export async function desfazerTarefaAgenda(
           isentarJuros: false,
         },
       });
-      await atualizarJurosParcelasPendentes();
+      await atualizarJurosParcelasPendentes(tenant.locadoraId);
       revalidateAgenda();
       return { success: true };
     }
@@ -224,7 +238,7 @@ export async function desfazerTarefaAgenda(
     }
 
     await prisma.conclusaoAgenda.updateMany({
-      where: { chave },
+      where: { locadoraId: tenant.locadoraId, chave },
       data: { concluida: false, concluidaEm: null },
     });
 
@@ -233,7 +247,7 @@ export async function desfazerTarefaAgenda(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao desfazer",
+      error: friendlyErrorMessage(e, "Erro ao desfazer"),
     };
   }
 }
@@ -245,7 +259,7 @@ export async function reagendarTarefaAgenda(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
     const novaDataStr = formData.get("novaData") as string;
     if (!novaDataStr) {
@@ -279,6 +293,14 @@ export async function reagendarTarefaAgenda(
     if (chave.startsWith("parcela-")) {
       const parcela = await prisma.parcelaLocacao.findUnique({
         where: { id: referenciaId },
+        include: {
+          locacao: {
+            select: {
+              modeloContrato: true,
+              periodicidadePagamento: true,
+            },
+          },
+        },
       });
       if (!parcela) {
         return { success: false, error: "Parcela não encontrada" };
@@ -290,22 +312,28 @@ export async function reagendarTarefaAgenda(
       const base = Number(parcela.valorBase ?? parcela.valor);
       const vencimentoOriginal =
         parcela.dataVencimentoOriginal ?? parcela.dataVencimento;
+      const encargosOpts = {
+        modeloContrato: parcela.locacao.modeloContrato,
+        periodicidadePagamento: parcela.locacao.periodicidadePagamento,
+      };
 
       let valorJuros = 0;
-      let observacaoExtra = `Reagendado para ${novaDataStr} (sem juros de atraso)`;
+      let observacaoExtra = `Reagendado para ${novaDataStr} (sem encargos de atraso)`;
 
       if (aplicarJuros) {
-        const juros = calcularJurosParcela(
+        const { calcularEncargosParcela } = await import("@/lib/juros-parcela");
+        const enc = calcularEncargosParcela(
           base,
           vencimentoOriginal,
           data,
-          false
+          false,
+          encargosOpts
         );
-        valorJuros = juros.valorJuros;
+        valorJuros = enc.valorEncargos;
         observacaoExtra =
           valorJuros > 0
-            ? `Reagendado para ${novaDataStr} (juros ${juros.diasAtraso} dia(s) até a nova data: R$ ${valorJuros.toFixed(2)})`
-            : `Reagendado para ${novaDataStr} (sem juros — nova data não ultrapassa o vencimento do contrato)`;
+            ? `Reagendado para ${novaDataStr} (${enc.diasAtraso} dia(s) atraso: multa R$ ${enc.valorMulta.toFixed(2)} + juros R$ ${enc.valorJurosDiarios.toFixed(2)})`
+            : `Reagendado para ${novaDataStr} (sem encargos — nova data não ultrapassa o vencimento)`;
       }
 
       await prisma.parcelaLocacao.update({
@@ -322,7 +350,7 @@ export async function reagendarTarefaAgenda(
             .join(" · "),
         },
       });
-      await atualizarJurosParcelasPendentes();
+      await atualizarJurosParcelasPendentes(tenant.locadoraId);
       revalidateAgenda();
       return { success: true };
     }
@@ -340,10 +368,14 @@ export async function reagendarTarefaAgenda(
       return { success: true };
     }
 
-    const dataPrevista = await extrairDataPrevistaDaChave(chave);
+    const dataPrevista = await extrairDataPrevistaDaChave(
+      chave,
+      tenant.locadoraId
+    );
     await prisma.conclusaoAgenda.upsert({
-      where: { chave },
+      where: conclusaoWhere(tenant.locadoraId, chave),
       create: {
+        locadoraId: tenant.locadoraId,
         chave,
         tipo: tipo as never,
         dataPrevista,
@@ -362,7 +394,7 @@ export async function reagendarTarefaAgenda(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao reagendar",
+      error: friendlyErrorMessage(e, "Erro ao reagendar"),
     };
   }
 }
@@ -372,10 +404,10 @@ export async function confirmarCaucaoLocacao(
   input: FormData | ConfirmacaoPagamentoInput
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
-    const locacao = await prisma.locacao.findUnique({
-      where: { id: locacaoId },
+    const locacao = await prisma.locacao.findFirst({
+      where: { id: locacaoId, locadoraId: tenant.locadoraId },
       include: {
         veiculo: { select: { placa: true } },
         cliente: { select: { nome: true } },
@@ -406,8 +438,8 @@ export async function confirmarCaucaoLocacao(
       });
 
       if (opts.registrarFinanceiro) {
-        await ensureCategoriasFinanceirasPadrao(tx);
-        const categoria = await getCategoriaCaucao(tx);
+        await ensureCategoriasFinanceirasPadrao(tenant.locadoraId, tx);
+        const categoria = await getCategoriaCaucao(tenant.locadoraId, tx);
         await sincronizarLancamentoCaucao(tx, {
           categoriaId: categoria.id,
           tipo: "ENTRADA",
@@ -420,13 +452,15 @@ export async function confirmarCaucaoLocacao(
       }
     });
 
+    await marcarAdesaoPlanoConquistaPaga(locacaoId);
     revalidateAgenda();
     revalidatePath(`/locacoes/${locacaoId}`);
+    revalidatePath("/clientes/contratos/planos-conquista");
     return { success: true };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao confirmar caução",
+      error: friendlyErrorMessage(e, "Erro ao confirmar caução"),
     };
   }
 }
@@ -437,10 +471,10 @@ export async function confirmarRecebimentoRetirada(
   input: FormData | ConfirmacaoPagamentoInput
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
-    const locacao = await prisma.locacao.findUnique({
-      where: { id: locacaoId },
+    const locacao = await prisma.locacao.findFirst({
+      where: { id: locacaoId, locadoraId: tenant.locadoraId },
     });
     if (!locacao) {
       return { success: false, error: "Locação não encontrada" };
@@ -477,7 +511,7 @@ export async function confirmarRecebimentoRetirada(
       return { success: false, error: "Nada pendente para receber na retirada" };
     }
 
-    await removerParcelasPendentesDuplicadas();
+    await removerParcelasPendentesDuplicadas(tenant.locadoraId);
     revalidateAgenda();
     revalidatePath(`/locacoes/${locacaoId}`);
     return { success: true };
@@ -485,7 +519,7 @@ export async function confirmarRecebimentoRetirada(
     return {
       success: false,
       error:
-        e instanceof Error ? e.message : "Erro ao confirmar recebimento",
+        friendlyErrorMessage(e, "Erro ao confirmar recebimento"),
     };
   }
 }
@@ -495,11 +529,14 @@ export async function confirmarPagamentoParcela(
   input: FormData | ConfirmacaoPagamentoInput = { registrarFinanceiro: true }
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
-    await atualizarJurosParcelasPendentes();
+    const tenant = await assertAgendaAccess();
+    await atualizarJurosParcelasPendentes(tenant.locadoraId);
 
-    const parcela = await prisma.parcelaLocacao.findUnique({
-      where: { id: parcelaId },
+    const parcela = await prisma.parcelaLocacao.findFirst({
+      where: {
+        id: parcelaId,
+        locacao: { locadoraId: tenant.locadoraId },
+      },
       include: {
         locacao: {
           include: {
@@ -535,11 +572,14 @@ export async function confirmarPagamentoParcela(
       });
 
       if (opts.registrarFinanceiro) {
-        await ensureCategoriasFinanceirasPadrao(tx);
-        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        await ensureCategoriasFinanceirasPadrao(tenant.locadoraId, tx);
+        const categoria = await getCategoriaLocacaoVeiculos(
+          tenant.locadoraId,
+          tx
+        );
         const descricaoJuros =
           Number(parcela.valorJuros) > 0
-            ? ` (incl. juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
+            ? ` (incl. multa/juros R$ ${Number(parcela.valorJuros).toFixed(2)})`
             : "";
         await sincronizarLancamentoParcela(tx, {
           categoriaId: categoria.id,
@@ -554,14 +594,16 @@ export async function confirmarPagamentoParcela(
       }
     });
 
-    await removerParcelasPendentesDuplicadas();
+    await atualizarPlanoConquistaParcelaPaga(parcelaId);
+    await removerParcelasPendentesDuplicadas(tenant.locadoraId);
     revalidateAgenda();
     revalidatePath(`/locacoes/${parcela.locacaoId}`);
+    revalidatePath("/clientes/contratos/planos-conquista");
     return { success: true };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao confirmar pagamento",
+      error: friendlyErrorMessage(e, "Erro ao confirmar pagamento"),
     };
   }
 }
@@ -572,10 +614,13 @@ export async function ajustarPagamentoParcela(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertAgendaAccess();
+    const tenant = await assertAgendaAccess();
 
-    const parcela = await prisma.parcelaLocacao.findUnique({
-      where: { id: parcelaId },
+    const parcela = await prisma.parcelaLocacao.findFirst({
+      where: {
+        id: parcelaId,
+        locacao: { locadoraId: tenant.locadoraId },
+      },
       include: {
         locacao: {
           include: {
@@ -624,7 +669,10 @@ export async function ajustarPagamentoParcela(
       });
 
       if (registrarFinanceiro) {
-        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        const categoria = await getCategoriaLocacaoVeiculos(
+          tenant.locadoraId,
+          tx
+        );
         await sincronizarLancamentoParcela(tx, {
           categoriaId: categoria.id,
           tipo: "ENTRADA",
@@ -643,17 +691,20 @@ export async function ajustarPagamentoParcela(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro no ajuste",
+      error: friendlyErrorMessage(e, "Erro no ajuste"),
     };
   }
 }
 
-async function extrairDataPrevistaDaChave(chave: string): Promise<Date> {
+async function extrairDataPrevistaDaChave(
+  chave: string,
+  locadoraId: string
+): Promise<Date> {
   const ipvaMatch = chave.match(/^ipva-(.+)-(\d{4})$/);
   if (ipvaMatch) {
     const [, veiculoId, yearStr] = ipvaMatch;
-    const veiculo = await prisma.veiculo.findUnique({
-      where: { id: veiculoId },
+    const veiculo = await prisma.veiculo.findFirst({
+      where: { id: veiculoId, locadoraId },
       select: { ipvaVencimento: true },
     });
     if (veiculo?.ipvaVencimento) {
@@ -666,8 +717,8 @@ async function extrairDataPrevistaDaChave(chave: string): Promise<Date> {
   const locMatch = chave.match(/^loc-(.+)-(inicio|fim-prev|fim-real)$/);
   if (locMatch) {
     const [, locacaoId, suffix] = locMatch;
-    const loc = await prisma.locacao.findUnique({
-      where: { id: locacaoId },
+    const loc = await prisma.locacao.findFirst({
+      where: { id: locacaoId, locadoraId },
       select: { dataInicio: true, dataFimPrevista: true, dataFimReal: true },
     });
     if (suffix === "fim-prev") return startOfDay(loc?.dataFimPrevista ?? new Date());
@@ -678,8 +729,8 @@ async function extrairDataPrevistaDaChave(chave: string): Promise<Date> {
 
   if (chave.startsWith("manutencao-")) {
     const manutencaoId = chave.slice("manutencao-".length);
-    const manutencao = await prisma.manutencao.findUnique({
-      where: { id: manutencaoId },
+    const manutencao = await prisma.manutencao.findFirst({
+      where: { id: manutencaoId, veiculo: { locadoraId } },
       select: { dataRealizada: true },
     });
     return startOfDay(manutencao?.dataRealizada ?? new Date());

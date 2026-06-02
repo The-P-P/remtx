@@ -6,6 +6,7 @@ import {
 import { getEventosAgendaMes } from "@/lib/agenda";
 import { getVeiculosDisponiveisParaLocacao } from "@/lib/actions/locacoes";
 import { getClientesParaSelect } from "@/lib/actions/clientes";
+import { requireTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 
 export default async function AgendaPage({
@@ -23,13 +24,15 @@ export default async function AgendaPage({
       : agora.getMonth() + 1;
   const dia = params.dia ? Number(params.dia) : undefined;
 
+  const { locadoraId } = await requireTenant();
+
   const [eventosRaw, veiculosLocacao, clientes, veiculosAgenda] =
     await Promise.all([
-      getEventosAgendaMes(ano, mes),
+      getEventosAgendaMes(ano, mes, locadoraId),
       getVeiculosDisponiveisParaLocacao(),
       getClientesParaSelect(),
       prisma.veiculo.findMany({
-        where: { status: { not: "INATIVO" } },
+        where: { locadoraId, status: { not: "INATIVO" } },
         orderBy: { placa: "asc" },
         select: { id: true, placa: true, marca: true, modelo: true },
       }),

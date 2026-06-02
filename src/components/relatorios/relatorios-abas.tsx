@@ -23,7 +23,7 @@ export function RelatoriosAbas({
   return (
     <div className="w-full border-b border-border/60 bg-muted/20">
       <nav
-        className="flex w-full gap-0 overflow-x-auto px-2 sm:px-4"
+        className="flex w-full gap-0 overflow-x-auto overscroll-x-contain px-1 pb-px [-webkit-overflow-scrolling:touch] sm:px-4"
         role="tablist"
         aria-label="Seções do relatório"
       >
@@ -38,7 +38,7 @@ export function RelatoriosAbas({
               aria-selected={selecionada}
               onClick={() => onChange(secao.id)}
               className={cn(
-                "shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4",
+                "shrink-0 snap-start border-b-2 px-2.5 py-2.5 text-xs font-medium transition-colors sm:px-4 sm:py-3 sm:text-sm",
                 selecionada
                   ? "border-primary bg-background text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:bg-background/60 hover:text-foreground"

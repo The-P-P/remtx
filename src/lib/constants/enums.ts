@@ -75,6 +75,17 @@ export const ALERTA_LABEL: Record<AlertaManutencao, string> = {
   VERMELHO: "Vencido",
 };
 
+export const MODELO_CONTRATO_LABEL = {
+  PADRAO: "Contrato Padrão",
+  PLANO_CONQUISTA: "Contrato de Plano Conquista",
+} as const;
+
+export const STATUS_PLANO_CONQUISTA_LABEL = {
+  ATIVO: "Ativo",
+  CONCLUIDO: "Concluído",
+  CANCELADO: "Cancelado",
+} as const;
+
 export const STATUS_LOCACAO_LABEL: Record<StatusLocacao, string> = {
   RESERVADA: "Reservada",
   ATIVA: "Ativa",

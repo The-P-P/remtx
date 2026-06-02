@@ -15,17 +15,17 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       <Sidebar className="hidden md:flex" />
-      <div className="relative flex flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_44%)]" />
         <Header
           title="REMTX"
           userName={user?.nome}
           userRole={user?.role}
         />
-        <main className="relative flex-1 overflow-auto p-4 md:p-6">
-          <div className="mx-auto w-full max-w-[1500px] animate-in fade-in-50 duration-300">
+        <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto w-full min-w-0 max-w-[1500px] animate-in fade-in-50 duration-300">
             {children}
           </div>
         </main>

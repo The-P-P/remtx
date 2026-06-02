@@ -1,5 +1,6 @@
 "use server";
 
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 import { revalidatePath } from "next/cache";
 import {
   startOfDay,
@@ -13,8 +14,8 @@ import {
 } from "date-fns";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hasPermission } from "@/lib/auth";
-import { ensureCategoriasFinanceirasPadrao } from "@/lib/financeiro-categorias";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import { parsePeriodoFinanceiro } from "@/lib/financeiro-periodo";
 import { labelOrigemTransacao } from "@/lib/financeiro-export";
 import {
@@ -79,7 +80,10 @@ export type TransacaoListItem = Prisma.TransacaoFinanceiraGetPayload<{
   include: typeof transacaoInclude;
 }>;
 
-function buildFiltroTransacoes(params: FiltrosTransacao) {
+function buildFiltroTransacoes(
+  params: FiltrosTransacao,
+  locadoraId: string
+) {
   const periodo = parsePeriodoFinanceiro(params);
   const tipo =
     params.tipo === "ENTRADA" || params.tipo === "SAIDA"
@@ -88,6 +92,7 @@ function buildFiltroTransacoes(params: FiltrosTransacao) {
   const q = params.q?.trim();
 
   const where: Prisma.TransacaoFinanceiraWhereInput = {
+    categoria: { locadoraId },
     data: { gte: periodo.inicio, lte: periodo.fim },
     ...(tipo ? { tipo } : {}),
     ...(params.categoriaId ? { categoriaId: params.categoriaId } : {}),
@@ -102,11 +107,11 @@ export type ActionResult<T = void> =
   | { success: false; error: string };
 
 async function assertFinanceiroAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "financeiro")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "financeiro")) {
     throw new Error("Sem permissão para o financeiro");
   }
-  return user;
+  return tenant;
 }
 
 function revalidateFinanceiro() {
@@ -118,24 +123,29 @@ function revalidateFinanceiro() {
 }
 
 export async function getCategoriasFinanceiras(apenasAtivas = false) {
-  await ensureCategoriasFinanceirasPadrao();
+  const { locadoraId } = await requireTenant();
   return prisma.categoriaFinanceira.findMany({
-    where: apenasAtivas ? { ativo: true } : undefined,
+    where: {
+      locadoraId,
+      ...(apenasAtivas ? { ativo: true } : {}),
+    },
     orderBy: [{ tipo: "asc" }, { nome: "asc" }],
     include: { _count: { select: { transacoes: true } } },
   });
 }
 
 export async function getCategoriaById(id: string) {
-  return prisma.categoriaFinanceira.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.categoriaFinanceira.findFirst({
+    where: { id, locadoraId },
     include: { _count: { select: { transacoes: true } } },
   });
 }
 
 export async function getTransacaoById(id: string) {
-  return prisma.transacaoFinanceira.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.transacaoFinanceira.findFirst({
+    where: { id, categoria: { locadoraId } },
     include: {
       categoria: true,
       parcela: transacaoInclude.parcela,
@@ -148,8 +158,8 @@ export async function getTransacaoById(id: string) {
 export async function getTransacoes(
   params: FiltrosTransacao
 ): Promise<TransacaoListItem[]> {
-  await ensureCategoriasFinanceirasPadrao();
-  const { where } = buildFiltroTransacoes(params);
+  const { locadoraId } = await requireTenant();
+  const { where } = buildFiltroTransacoes(params, locadoraId);
 
   return prisma.transacaoFinanceira.findMany({
     where,
@@ -166,7 +176,8 @@ export type ResumoCategoriaItem = {
 };
 
 export async function getResumoPorCategoria(params: FiltrosTransacao) {
-  const { where } = buildFiltroTransacoes(params);
+  const { locadoraId } = await requireTenant();
+  const { where } = buildFiltroTransacoes(params, locadoraId);
   const transacoes = await prisma.transacaoFinanceira.findMany({
     where,
     select: {
@@ -198,7 +209,8 @@ export async function getResumoPorCategoria(params: FiltrosTransacao) {
 }
 
 export async function getResumoFinanceiro(params: FiltrosTransacao) {
-  const { periodo, where } = buildFiltroTransacoes(params);
+  const { locadoraId } = await requireTenant();
+  const { periodo, where } = buildFiltroTransacoes(params, locadoraId);
   const { inicio, fim, ano, mes, modo } = periodo;
   const transacoes = await prisma.transacaoFinanceira.findMany({
     where,
@@ -230,9 +242,9 @@ export async function duplicateTransacao(
   id: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertFinanceiroAccess();
-    const original = await prisma.transacaoFinanceira.findUnique({
-      where: { id },
+    const tenant = await assertFinanceiroAccess();
+    const original = await prisma.transacaoFinanceira.findFirst({
+      where: { id, categoria: { locadoraId: tenant.locadoraId } },
     });
     if (!original) {
       return { success: false, error: "Lançamento não encontrado" };
@@ -262,7 +274,7 @@ export async function duplicateTransacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao duplicar",
+      error: friendlyErrorMessage(e, "Erro ao duplicar"),
     };
   }
 }
@@ -302,12 +314,16 @@ export async function getFluxoAno(
   totalSaidas: number;
   saldoAno: number;
 }> {
+  const { locadoraId } = await requireTenant();
   const ano = Number(anoParam) || new Date().getFullYear();
   const inicio = startOfYear(new Date(ano, 0, 1));
   const fim = endOfYear(inicio);
 
   const transacoes = await prisma.transacaoFinanceira.findMany({
-    where: { data: { gte: inicio, lte: fim } },
+    where: {
+      categoria: { locadoraId },
+      data: { gte: inicio, lte: fim },
+    },
     select: { tipo: true, valor: true, data: true },
   });
 
@@ -387,7 +403,7 @@ export async function createTransacao(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
     const parsed = transacaoSchema.safeParse({
       tipo: formData.get("tipo"),
       categoriaId: formData.get("categoriaId"),
@@ -404,8 +420,8 @@ export async function createTransacao(
       };
     }
 
-    const categoria = await prisma.categoriaFinanceira.findUnique({
-      where: { id: parsed.data.categoriaId },
+    const categoria = await prisma.categoriaFinanceira.findFirst({
+      where: { id: parsed.data.categoriaId, locadoraId: tenant.locadoraId },
     });
     if (!categoria?.ativo) {
       return { success: false, error: "Categoria inválida ou inativa" };
@@ -433,7 +449,7 @@ export async function createTransacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao criar lançamento",
+      error: friendlyErrorMessage(e, "Erro ao criar lançamento"),
     };
   }
 }
@@ -443,7 +459,7 @@ export async function updateTransacao(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
     const parsed = transacaoSchema.safeParse({
       tipo: formData.get("tipo"),
       categoriaId: formData.get("categoriaId"),
@@ -460,8 +476,8 @@ export async function updateTransacao(
       };
     }
 
-    const categoria = await prisma.categoriaFinanceira.findUnique({
-      where: { id: parsed.data.categoriaId },
+    const categoria = await prisma.categoriaFinanceira.findFirst({
+      where: { id: parsed.data.categoriaId, locadoraId: tenant.locadoraId },
     });
     if (!categoria?.ativo) {
       return { success: false, error: "Categoria inválida ou inativa" };
@@ -473,8 +489,8 @@ export async function updateTransacao(
       };
     }
 
-    const existente = await prisma.transacaoFinanceira.findUnique({
-      where: { id },
+    const existente = await prisma.transacaoFinanceira.findFirst({
+      where: { id, categoria: { locadoraId: tenant.locadoraId } },
     });
     if (!existente) {
       return { success: false, error: "Lançamento não encontrado" };
@@ -497,21 +513,28 @@ export async function updateTransacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar lançamento",
+      error: friendlyErrorMessage(e, "Erro ao atualizar lançamento"),
     };
   }
 }
 
 export async function deleteTransacao(id: string): Promise<ActionResult> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
+    const existente = await prisma.transacaoFinanceira.findFirst({
+      where: { id, categoria: { locadoraId: tenant.locadoraId } },
+      select: { id: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Lançamento não encontrado" };
+    }
     await prisma.transacaoFinanceira.delete({ where: { id } });
     revalidateFinanceiro();
     return { success: true };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir lançamento",
+      error: friendlyErrorMessage(e, "Erro ao excluir lançamento"),
     };
   }
 }
@@ -520,7 +543,7 @@ export async function createCategoria(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
     const parsed = categoriaSchema.safeParse({
       nome: formData.get("nome"),
       tipo: formData.get("tipo"),
@@ -535,6 +558,7 @@ export async function createCategoria(
 
     const categoria = await prisma.categoriaFinanceira.create({
       data: {
+        locadoraId: tenant.locadoraId,
         nome: parsed.data.nome.trim(),
         tipo: parsed.data.tipo,
         ativo: true,
@@ -544,7 +568,7 @@ export async function createCategoria(
     revalidateFinanceiro();
     return { success: true, data: { id: categoria.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao criar categoria";
+    const msg = friendlyErrorMessage(e, "Erro ao criar categoria");
     if (msg.includes("Unique constraint")) {
       return { success: false, error: "Já existe uma categoria com este nome" };
     }
@@ -557,7 +581,7 @@ export async function updateCategoria(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
     const parsed = categoriaSchema.safeParse({
       nome: formData.get("nome"),
       tipo: formData.get("tipo"),
@@ -569,6 +593,14 @@ export async function updateCategoria(
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
       };
+    }
+
+    const existente = await prisma.categoriaFinanceira.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Categoria não encontrada" };
     }
 
     await prisma.categoriaFinanceira.update({
@@ -583,7 +615,7 @@ export async function updateCategoria(
     revalidateFinanceiro();
     return { success: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao atualizar categoria";
+    const msg = friendlyErrorMessage(e, "Erro ao atualizar categoria");
     if (msg.includes("Unique constraint")) {
       return { success: false, error: "Já existe uma categoria com este nome" };
     }
@@ -593,7 +625,14 @@ export async function updateCategoria(
 
 export async function deleteCategoria(id: string): Promise<ActionResult> {
   try {
-    await assertFinanceiroAccess();
+    const tenant = await assertFinanceiroAccess();
+    const categoria = await prisma.categoriaFinanceira.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!categoria) {
+      return { success: false, error: "Categoria não encontrada" };
+    }
     const count = await prisma.transacaoFinanceira.count({
       where: { categoriaId: id },
     });
@@ -609,7 +648,7 @@ export async function deleteCategoria(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir categoria",
+      error: friendlyErrorMessage(e, "Erro ao excluir categoria"),
     };
   }
 }

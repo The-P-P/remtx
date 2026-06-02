@@ -86,12 +86,14 @@ export function RelatoriosCharts({
   }));
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <Card className="xl:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-base">Evolução financeira (12 meses)</CardTitle>
+    <div className="grid min-w-0 gap-3 sm:gap-4 xl:grid-cols-2">
+      <Card className="min-w-0 xl:col-span-2">
+        <CardHeader className="px-3 sm:px-4">
+          <CardTitle className="text-sm sm:text-base">
+            Evolução financeira (12 meses)
+          </CardTitle>
         </CardHeader>
-        <CardContent className="h-72">
+        <CardContent className="h-56 px-2 sm:h-72 sm:px-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={serieChart}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
@@ -128,11 +130,11 @@ export function RelatoriosCharts({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Top veículos (receita)</CardTitle>
+      <Card className="min-w-0">
+        <CardHeader className="px-3 sm:px-4">
+          <CardTitle className="text-sm sm:text-base">Top veículos (receita)</CardTitle>
         </CardHeader>
-        <CardContent className="h-64">
+        <CardContent className="h-52 px-2 sm:h-64 sm:px-4">
           {veiculosChart.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem dados no período.</p>
           ) : (
@@ -140,7 +142,7 @@ export function RelatoriosCharts({
               <BarChart data={veiculosChart} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="nome" width={56} tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="nome" width={44} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v) => fmtMoeda(Number(v))} />
                 <Bar dataKey="receita" name="Receita" fill="#2563eb" radius={4} />
               </BarChart>
@@ -149,11 +151,11 @@ export function RelatoriosCharts({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Top clientes (receita)</CardTitle>
+      <Card className="min-w-0">
+        <CardHeader className="px-3 sm:px-4">
+          <CardTitle className="text-sm sm:text-base">Top clientes (receita)</CardTitle>
         </CardHeader>
-        <CardContent className="h-64">
+        <CardContent className="h-52 px-2 sm:h-64 sm:px-4">
           {clientesChart.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem dados no período.</p>
           ) : (
@@ -161,7 +163,7 @@ export function RelatoriosCharts({
               <BarChart data={clientesChart} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="nome" width={72} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="nome" width={48} tick={{ fontSize: 9 }} />
                 <Tooltip formatter={(v) => fmtMoeda(Number(v))} />
                 <Bar dataKey="receita" name="Receita" fill="#16a34a" radius={4} />
               </BarChart>
@@ -171,11 +173,11 @@ export function RelatoriosCharts({
       </Card>
 
       {formasChart.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Formas de pagamento</CardTitle>
+        <Card className="min-w-0">
+          <CardHeader className="px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base">Formas de pagamento</CardTitle>
           </CardHeader>
-          <CardContent className="h-64">
+          <CardContent className="h-52 px-2 sm:h-64 sm:px-4">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -184,18 +186,15 @@ export function RelatoriosCharts({
                   nameKey="nome"
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
-                  label={(props) => {
-                    const nome = String(props.name ?? "");
-                    const pct = ((props.percent ?? 0) * 100).toFixed(0);
-                    return `${nome} ${pct}%`;
-                  }}
+                  outerRadius="70%"
+                  label={false}
                 >
                   {formasChart.map((_, i) => (
                     <Cell key={i} fill={CORES[i % CORES.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(v) => fmtMoeda(Number(v))} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -203,11 +202,11 @@ export function RelatoriosCharts({
       )}
 
       {saidasCat.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Despesas por categoria</CardTitle>
+        <Card className="min-w-0">
+          <CardHeader className="px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base">Despesas por categoria</CardTitle>
           </CardHeader>
-          <CardContent className="h-64">
+          <CardContent className="h-52 px-1 sm:h-64 sm:px-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={saidasCat}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
@@ -222,11 +221,11 @@ export function RelatoriosCharts({
       )}
 
       {entradasCat.length > 0 && (
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Receitas por categoria</CardTitle>
+        <Card className="min-w-0 xl:col-span-2">
+          <CardHeader className="px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base">Receitas por categoria</CardTitle>
           </CardHeader>
-          <CardContent className="h-64">
+          <CardContent className="h-52 px-1 sm:h-64 sm:px-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={entradasCat}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />

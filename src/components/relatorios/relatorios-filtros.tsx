@@ -62,25 +62,23 @@ export function RelatoriosFiltros({
   ];
 
   return (
-    <form method="get" className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium">Filtros de período</p>
-        <div className="flex flex-wrap gap-1.5">
-          {presets.map((p) => (
-            <Link
-              key={p.key}
-              href={p.href}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                activePreset === p.key
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/70 text-muted-foreground hover:bg-muted/50"
-              )}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </div>
+    <form method="get" className="space-y-3 rounded-lg border p-3 sm:p-4">
+      <p className="text-sm font-medium">Filtros de período</p>
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        {presets.map((p) => (
+          <Link
+            key={p.key}
+            href={p.href}
+            className={cn(
+              "shrink-0 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              activePreset === p.key
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/70 text-muted-foreground hover:bg-muted/50"
+            )}
+          >
+            {p.label}
+          </Link>
+        ))}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -117,11 +115,16 @@ export function RelatoriosFiltros({
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button type="submit" variant="secondary">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="submit" variant="secondary" className="w-full sm:w-auto">
           Aplicar
         </Button>
-        <Button type="button" variant="ghost" render={<Link href="/relatorios" />}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full sm:w-auto"
+          render={<Link href="/relatorios" />}
+        >
           Limpar
         </Button>
       </div>

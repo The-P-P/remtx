@@ -1,5 +1,6 @@
 "use client";
 
+import { FormErrorInline } from "@/components/shared/form-field-error";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +27,7 @@ export function ProblemaCronicoForm({
   return (
     <form action={formAction} className="space-y-3 rounded-lg border p-4">
       <input type="hidden" name="veiculoId" value={veiculoId} />
-      {state.success === false && (
-        <p className="text-sm text-red-600">{state.error}</p>
-      )}
+      {state.success === false && <FormErrorInline error={state.error} />}
       <div className="space-y-2">
         <Label htmlFor="descricao">Descrição do problema *</Label>
         <Input id="descricao" name="descricao" required placeholder="Ex.: Ar-condicionado com vazamento" />

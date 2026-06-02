@@ -12,6 +12,7 @@
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/tenant";
 import { parsePeriodoFinanceiro, type PeriodoFinanceiro } from "@/lib/financeiro-periodo";
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/constants/enums";
 import type { FormaPagamento } from "@/types/prisma";
@@ -66,16 +67,30 @@ type PeriodoRaw = {
   totalVeiculosAtivos: number;
 };
 
-async function fetchTransacoes(inicio: Date, fim: Date) {
+async function fetchTransacoes(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.transacaoFinanceira.findMany({
-    where: { data: { gte: inicio, lte: fim } },
+    where: {
+      categoria: { locadoraId },
+      data: { gte: inicio, lte: fim },
+    },
     include: { categoria: { select: { nome: true, tipo: true } } },
   });
 }
 
-async function fetchParcelasPagas(inicio: Date, fim: Date) {
+async function fetchParcelasPagas(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.parcelaLocacao.findMany({
-    where: { dataPagamento: { gte: inicio, lte: fim } },
+    where: {
+      dataPagamento: { gte: inicio, lte: fim },
+      locacao: { locadoraId },
+    },
     include: {
       locacao: {
         select: {
@@ -88,9 +103,16 @@ async function fetchParcelasPagas(inicio: Date, fim: Date) {
   });
 }
 
-async function fetchParcelasVencidas(inicio: Date, fim: Date) {
+async function fetchParcelasVencidas(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.parcelaLocacao.findMany({
-    where: { dataVencimento: { gte: inicio, lte: fim } },
+    where: {
+      dataVencimento: { gte: inicio, lte: fim },
+      locacao: { locadoraId },
+    },
     include: {
       locacao: {
         select: {
@@ -103,9 +125,16 @@ async function fetchParcelasVencidas(inicio: Date, fim: Date) {
   });
 }
 
-async function fetchManutencoes(inicio: Date, fim: Date) {
+async function fetchManutencoes(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.manutencao.findMany({
-    where: { dataRealizada: { gte: inicio, lte: fim } },
+    where: {
+      dataRealizada: { gte: inicio, lte: fim },
+      veiculo: { locadoraId },
+    },
     include: {
       veiculo: { select: { id: true, placa: true, marca: true, modelo: true } },
       tipoManutencao: { select: { nome: true } },
@@ -113,9 +142,14 @@ async function fetchManutencoes(inicio: Date, fim: Date) {
   });
 }
 
-async function fetchLocacoesSobrepostas(inicio: Date, fim: Date) {
+async function fetchLocacoesSobrepostas(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.locacao.findMany({
     where: {
+      locadoraId,
       dataInicio: { lte: fim },
       OR: [{ dataFimReal: null }, { dataFimReal: { gte: inicio } }],
     },
@@ -129,9 +163,13 @@ async function fetchLocacoesSobrepostas(inicio: Date, fim: Date) {
   });
 }
 
-async function fetchLocacoesFinalizadas(inicio: Date, fim: Date) {
+async function fetchLocacoesFinalizadas(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   return prisma.locacao.findMany({
-    where: { dataFimReal: { gte: inicio, lte: fim } },
+    where: { locadoraId, dataFimReal: { gte: inicio, lte: fim } },
     select: {
       id: true,
       valorTotal: true,
@@ -142,7 +180,11 @@ async function fetchLocacoesFinalizadas(inicio: Date, fim: Date) {
   });
 }
 
-async function fetchPeriodoRaw(inicio: Date, fim: Date): Promise<PeriodoRaw> {
+async function fetchPeriodoRaw(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+): Promise<PeriodoRaw> {
   const [
     transacoes,
     parcelasPagas,
@@ -152,13 +194,15 @@ async function fetchPeriodoRaw(inicio: Date, fim: Date): Promise<PeriodoRaw> {
     locacoesFinalizadas,
     totalVeiculosAtivos,
   ] = await Promise.all([
-    fetchTransacoes(inicio, fim),
-    fetchParcelasPagas(inicio, fim),
-    fetchParcelasVencidas(inicio, fim),
-    fetchManutencoes(inicio, fim),
-    fetchLocacoesSobrepostas(inicio, fim),
-    fetchLocacoesFinalizadas(inicio, fim),
-    prisma.veiculo.count({ where: { status: { not: "INATIVO" } } }),
+    fetchTransacoes(inicio, fim, locadoraId),
+    fetchParcelasPagas(inicio, fim, locadoraId),
+    fetchParcelasVencidas(inicio, fim, locadoraId),
+    fetchManutencoes(inicio, fim, locadoraId),
+    fetchLocacoesSobrepostas(inicio, fim, locadoraId),
+    fetchLocacoesFinalizadas(inicio, fim, locadoraId),
+    prisma.veiculo.count({
+      where: { locadoraId, status: { not: "INATIVO" } },
+    }),
   ]);
 
   return {
@@ -235,6 +279,7 @@ function buildKpis(
 export async function getRelatorioGeral(
   filtros: RelatorioFiltros
 ): Promise<RelatorioGeralData> {
+  const { locadoraId } = await requireTenant();
   const periodo = parsePeriodoFinanceiro(filtros);
   const { inicio, fim } = periodo;
   const periodoAnt = calcularPeriodoAnterior(periodo);
@@ -256,10 +301,11 @@ export async function getRelatorioGeral(
     clientesComLocacao,
     todasLocacoesClientes,
   ] = await Promise.all([
-    fetchPeriodoRaw(inicio, fim),
-    fetchPeriodoRaw(periodoAnt.inicio, periodoAnt.fim),
+    fetchPeriodoRaw(inicio, fim, locadoraId),
+    fetchPeriodoRaw(periodoAnt.inicio, periodoAnt.fim, locadoraId),
     prisma.transacaoFinanceira.findMany({
       where: {
+        categoria: { locadoraId },
         data: {
           gte: startOfMonth(subMonths(fim, 11)),
           lte: endOfMonth(fim),
@@ -268,7 +314,7 @@ export async function getRelatorioGeral(
       select: { data: true, tipo: true, valor: true },
     }),
     prisma.veiculo.findMany({
-      where: { status: { not: "INATIVO" } },
+      where: { locadoraId, status: { not: "INATIVO" } },
       select: {
         id: true,
         placa: true,
@@ -279,6 +325,7 @@ export async function getRelatorioGeral(
     }),
     prisma.parcelaLocacao.findMany({
       where: {
+        locacao: { locadoraId },
         dataVencimento: { lte: refInadimplencia },
         OR: [{ dataPagamento: null }, { dataPagamento: { gt: refInadimplencia } }],
       },
@@ -296,6 +343,7 @@ export async function getRelatorioGeral(
     }),
     prisma.parcelaLocacao.findMany({
       where: {
+        locacao: { locadoraId },
         dataVencimento: { gte: hoje, lte: previsaoFim },
         dataPagamento: null,
       },
@@ -311,6 +359,7 @@ export async function getRelatorioGeral(
     }),
     prisma.transacaoFinanceira.findMany({
       where: {
+        categoria: { locadoraId },
         tipo: "SAIDA",
         data: { gte: hoje, lte: previsaoFim },
       },
@@ -318,16 +367,18 @@ export async function getRelatorioGeral(
       orderBy: { data: "asc" },
     }),
     prisma.locacao.count({
-      where: { dataInicio: { gte: inicio, lte: fim } },
+      where: { locadoraId, dataInicio: { gte: inicio, lte: fim } },
     }),
     prisma.locacao.count({
       where: {
+        locadoraId,
         status: { in: ["ATIVA", "RESERVADA"] },
         dataInicio: { lte: fim },
       },
     }),
     prisma.transacaoFinanceira.findMany({
       where: {
+        categoria: { locadoraId },
         tipo: "SAIDA",
         data: { gte: inicio, lte: fim },
         parcelaFinanciamentoId: { not: null },
@@ -336,12 +387,14 @@ export async function getRelatorioGeral(
     }),
     prisma.locacao.findMany({
       where: {
+        locadoraId,
         dataInicio: { lte: fim },
         OR: [{ dataFimReal: null }, { dataFimReal: { gte: inicio } }],
       },
       select: { clienteId: true, dataInicio: true },
     }),
     prisma.locacao.findMany({
+      where: { locadoraId },
       select: { clienteId: true, dataInicio: true },
       orderBy: { dataInicio: "asc" },
     }),

@@ -11,13 +11,27 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const LOCADORA_SEED_ID = "locadora-legado";
+
 async function main() {
   console.log("🌱 Iniciando seed REMTX...");
 
+  await prisma.locadora.upsert({
+    where: { id: LOCADORA_SEED_ID },
+    create: { id: LOCADORA_SEED_ID, nome: "Locadora principal" },
+    update: {},
+  });
+
   const tipoRevisao = await prisma.tipoManutencao.upsert({
-    where: { nome: "Revisão periódica" },
+    where: {
+      locadoraId_nome: {
+        locadoraId: LOCADORA_SEED_ID,
+        nome: "Revisão periódica",
+      },
+    },
     update: { ativo: true, intervaloKm: 10000 },
     create: {
+      locadoraId: LOCADORA_SEED_ID,
       nome: "Revisão periódica",
       descricao: "Tipo demo para manutenções de exemplo",
       intervaloKm: 10000,
@@ -28,16 +42,19 @@ async function main() {
   const { ensureCategoriasFinanceirasPadrao } = await import(
     "@/lib/financeiro-categorias"
   );
-  const categorias = await ensureCategoriasFinanceirasPadrao();
+  const categorias = await ensureCategoriasFinanceirasPadrao(LOCADORA_SEED_ID);
 
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
   const veiculos = await Promise.all([
     prisma.veiculo.upsert({
-      where: { placa: "ABC1D23" },
+      where: {
+        locadoraId_placa: { locadoraId: LOCADORA_SEED_ID, placa: "ABC1D23" },
+      },
       update: {},
       create: {
+        locadoraId: LOCADORA_SEED_ID,
         placa: "ABC1D23",
         marca: "Volkswagen",
         modelo: "Gol",
@@ -50,9 +67,12 @@ async function main() {
       },
     }),
     prisma.veiculo.upsert({
-      where: { placa: "XYZ9E87" },
+      where: {
+        locadoraId_placa: { locadoraId: LOCADORA_SEED_ID, placa: "XYZ9E87" },
+      },
       update: {},
       create: {
+        locadoraId: LOCADORA_SEED_ID,
         placa: "XYZ9E87",
         marca: "Fiat",
         modelo: "Argo",
@@ -65,9 +85,12 @@ async function main() {
       },
     }),
     prisma.veiculo.upsert({
-      where: { placa: "QWE4R56" },
+      where: {
+        locadoraId_placa: { locadoraId: LOCADORA_SEED_ID, placa: "QWE4R56" },
+      },
       update: {},
       create: {
+        locadoraId: LOCADORA_SEED_ID,
         placa: "QWE4R56",
         marca: "Chevrolet",
         modelo: "Onix",
@@ -79,9 +102,12 @@ async function main() {
       },
     }),
     prisma.veiculo.upsert({
-      where: { placa: "HJK7L89" },
+      where: {
+        locadoraId_placa: { locadoraId: LOCADORA_SEED_ID, placa: "HJK7L89" },
+      },
       update: {},
       create: {
+        locadoraId: LOCADORA_SEED_ID,
         placa: "HJK7L89",
         marca: "Hyundai",
         modelo: "HB20",
@@ -95,9 +121,12 @@ async function main() {
   ]);
 
   const cliente = await prisma.cliente.upsert({
-    where: { cpf: "12345678901" },
+    where: {
+      locadoraId_cpf: { locadoraId: LOCADORA_SEED_ID, cpf: "12345678901" },
+    },
     update: {},
     create: {
+      locadoraId: LOCADORA_SEED_ID,
       nome: "Maria Silva",
       cpf: "12345678901",
       telefone: "(11) 98765-4321",
@@ -151,6 +180,7 @@ async function main() {
   if (locacaoCount === 0) {
     const locAtiva = await prisma.locacao.create({
       data: {
+        locadoraId: LOCADORA_SEED_ID,
         veiculoId: veiculos[1].id,
         clienteId: cliente.id,
         dataInicio: new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000),
@@ -180,6 +210,7 @@ async function main() {
     const semanasFin = listarVencimentosSemanais(inicioFin, fimFin).length;
     await prisma.locacao.create({
       data: {
+        locadoraId: LOCADORA_SEED_ID,
         veiculoId: veiculos[0].id,
         clienteId: cliente.id,
         dataInicio: inicioFin,
@@ -234,12 +265,14 @@ async function main() {
     await prisma.eventoAgenda.createMany({
       data: [
         {
+          locadoraId: LOCADORA_SEED_ID,
           titulo: "Revisão agendada — Oficina Centro",
           tipo: "MANUTENCAO_AGENDADA",
           dataInicio: new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000),
           veiculoId: veiculos[2].id,
         },
         {
+          locadoraId: LOCADORA_SEED_ID,
           titulo: "Pagamento fornecedor pneus",
           tipo: "FINANCEIRO",
           dataInicio: new Date(hoje.getTime() + 10 * 24 * 60 * 60 * 1000),

@@ -21,6 +21,13 @@ export const veiculoSchema = z.object({
   modelo: z.string().min(1, "Modelo obrigatório"),
   ano: z.coerce.number().int().min(1990).max(new Date().getFullYear() + 1),
   cor: z.string().optional(),
+  renavam: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const t = v?.trim();
+      return t && t.length > 0 ? t : null;
+    }),
   porte: z.enum(PORTE_VEICULO_VALUES),
   valorCompra: currencyMinZero().transform((v) =>
     v != null && v > 0 ? v : null

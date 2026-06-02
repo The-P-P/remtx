@@ -73,6 +73,10 @@ export type TarefaAgendaSerializada = {
     valor?: number;
     valorBase?: number;
     valorJuros?: number;
+    valorMulta?: number;
+    valorJurosDiarios?: number;
+    modeloEncargos?: "PADRAO" | "PLANO_CONQUISTA";
+    encargosContrato?: string;
     diasAtraso?: number;
     atrasado?: boolean;
     concluido?: boolean;
@@ -355,8 +359,15 @@ export function AgendaTarefasDia({
                         t.meta.valorJuros != null &&
                         t.meta.valorJuros > 0 && (
                           <span className="ml-1 font-normal text-amber-700 dark:text-amber-300">
-                            (base {formatCurrency(t.meta.valorBase ?? 0)} + juros{" "}
-                            {formatCurrency(t.meta.valorJuros)})
+                            (base {formatCurrency(t.meta.valorBase ?? 0)}
+                            {t.meta.valorMulta != null && t.meta.valorMulta > 0
+                              ? ` + multa ${formatCurrency(t.meta.valorMulta)}`
+                              : ""}
+                            {t.meta.valorJurosDiarios != null &&
+                            t.meta.valorJurosDiarios > 0
+                              ? ` + juros ${formatCurrency(t.meta.valorJurosDiarios)}`
+                              : ` + encargos ${formatCurrency(t.meta.valorJuros)}`}
+                            )
                           </span>
                         )}
                     </p>
@@ -369,8 +380,9 @@ export function AgendaTarefasDia({
                       )}
                     {t.meta.atrasado && isPagamentoCliente(t.tipo) && (
                       <p className="text-xs text-amber-700 dark:text-amber-300">
-                        {t.meta.diasAtraso} dia(s) de atraso — 5% do valor
-                        semanal por dia
+                        {t.meta.diasAtraso} dia(s) de atraso —{" "}
+                        {t.meta.encargosContrato ??
+                          "multa de mora + 1% ao dia"}
                       </p>
                     )}
                     {t.meta.atrasado && isPagamentoFinanciamento(t.tipo) && (
@@ -708,6 +720,12 @@ export function AgendaTarefasDia({
               tarefaAtiva.meta?.valorBase != null ? (
                 <ReagendarPagamentoForm
                   valorBase={tarefaAtiva.meta.valorBase}
+                  modeloContrato={tarefaAtiva.meta.modeloEncargos}
+                  periodicidadePagamento={
+                    tarefaAtiva.meta.modeloEncargos === "PLANO_CONQUISTA"
+                      ? "MENSAL"
+                      : "SEMANAL"
+                  }
                   vencimentoContrato={
                     tarefaAtiva.meta.dataVencimentoContrato ??
                     tarefaAtiva.dataInicio

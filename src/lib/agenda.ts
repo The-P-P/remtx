@@ -9,7 +9,10 @@ import { prisma } from "@/lib/prisma";
 import { prepararParcelasParaAgenda } from "@/lib/parcelas-juros";
 import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 import { dateKey, parseDateInput } from "@/lib/utils";
-import { calcularJurosParcela } from "@/lib/juros-parcela";
+import {
+  calcularEncargosParcela,
+  descricaoEncargosContrato,
+} from "@/lib/juros-parcela";
 import type { TipoEventoAgenda } from "@/types/prisma";
 
 export type ReferenciaAgenda =
@@ -43,6 +46,10 @@ export type AgendaEvento = {
     totalRetirada?: number;
     valorBase?: number;
     valorJuros?: number;
+    valorMulta?: number;
+    valorJurosDiarios?: number;
+    modeloEncargos?: "PADRAO" | "PLANO_CONQUISTA";
+    encargosContrato?: string;
     diasAtraso?: number;
     atrasado?: boolean;
     concluido?: boolean;
@@ -160,13 +167,15 @@ function emitirEventoLocacao(
 
 export async function getEventosAgenda(
   inicio: Date,
-  fim: Date
+  fim: Date,
+  locadoraId: string
 ): Promise<AgendaEvento[]> {
-  await prepararParcelasParaAgenda();
+  await prepararParcelasParaAgenda(locadoraId);
 
   const conclusoesManutencaoReagendadas =
     await prisma.conclusaoAgenda.findMany({
       where: {
+        locadoraId,
         chave: { startsWith: "manutencao-" },
         reagendadaPara: { gte: inicio, lte: fim },
       },
@@ -186,7 +195,7 @@ export async function getEventosAgenda(
     conclusoes,
   ] = await Promise.all([
     prisma.locacao.findMany({
-      where: { status: { not: "CANCELADA" } },
+      where: { locadoraId, status: { not: "CANCELADA" } },
       include: {
         veiculo: { select: { placa: true, modelo: true } },
         cliente: { select: { nome: true } },
@@ -194,6 +203,7 @@ export async function getEventosAgenda(
     }),
     prisma.parcelaLocacao.findMany({
       where: {
+        locacao: { locadoraId },
         OR: [
           { dataVencimento: { gte: inicio, lte: fim } },
           { dataPagamento: { gte: inicio, lte: fim } },
@@ -201,7 +211,13 @@ export async function getEventosAgenda(
       },
       include: {
         locacao: {
-          include: {
+          select: {
+            id: true,
+            dataInicio: true,
+            valorCaucao: true,
+            caucaoPaga: true,
+            periodicidadePagamento: true,
+            modeloContrato: true,
             veiculo: { select: { placa: true } },
             cliente: { select: { nome: true, id: true } },
           },
@@ -210,7 +226,7 @@ export async function getEventosAgenda(
     }),
     prisma.parcelaFinanciamento.findMany({
       where: {
-        financiamento: { ativo: true },
+        financiamento: { ativo: true, veiculo: { locadoraId } },
         OR: [
           { dataVencimento: { gte: inicio, lte: fim } },
           { dataPagamento: { gte: inicio, lte: fim } },
@@ -228,6 +244,7 @@ export async function getEventosAgenda(
     }),
     prisma.eventoAgenda.findMany({
       where: {
+        locadoraId,
         dataInicio: { lte: fim },
         OR: [{ dataFim: null }, { dataFim: { gte: inicio } }],
       },
@@ -242,6 +259,7 @@ export async function getEventosAgenda(
         parcelaId: null,
         manutencaoId: null,
         parcelaFinanciamentoId: null,
+        categoria: { locadoraId },
       },
       include: {
         categoria: { select: { nome: true } },
@@ -256,6 +274,7 @@ export async function getEventosAgenda(
     }),
     prisma.manutencao.findMany({
       where: {
+        veiculo: { locadoraId },
         OR: [
           { dataRealizada: { gte: inicio, lte: fim } },
           ...(manutencaoIdsReagendadas.length > 0
@@ -272,6 +291,7 @@ export async function getEventosAgenda(
     }),
     prisma.veiculo.findMany({
       where: {
+        locadoraId,
         ipvaVencimento: { not: null },
         status: { not: "INATIVO" },
       },
@@ -285,6 +305,7 @@ export async function getEventosAgenda(
     }),
     prisma.conclusaoAgenda.findMany({
       where: {
+        locadoraId,
         OR: [
           { dataPrevista: { lte: fim, gte: inicio } },
           { reagendadaPara: { lte: fim, gte: inicio } },
@@ -303,6 +324,7 @@ export async function getEventosAgenda(
   if (manutencoes.length > 0) {
     const conclusoesManutencao = await prisma.conclusaoAgenda.findMany({
       where: {
+        locadoraId,
         chave: { in: manutencoes.map((m) => `manutencao-${m.id}`) },
       },
     });
@@ -414,33 +436,48 @@ export async function getEventosAgenda(
     const pagamentoReagendado =
       vencimentoContrato.getTime() !== vencimentoPagamento.getTime();
 
-    const { diasAtraso } = pago
-      ? { diasAtraso: 0 }
-      : calcularJurosParcela(
+    const encargosOpts = {
+      modeloContrato: p.locacao.modeloContrato,
+      periodicidadePagamento: p.locacao.periodicidadePagamento,
+    };
+    const encargos = pago
+      ? null
+      : calcularEncargosParcela(
           valorBase,
           vencimentoPagamento,
           hoje,
-          p.isentarJuros
+          p.isentarJuros,
+          encargosOpts
         );
+    const diasAtraso = encargos?.diasAtraso ?? 0;
 
+    const isMensal = p.locacao.periodicidadePagamento === "MENSAL";
+    const isPlano = p.locacao.modeloContrato === "PLANO_CONQUISTA";
     const dataInicioLocacao = parseDateInput(p.locacao.dataInicio);
     const ePrimeiraSemanaRetirada =
+      !isMensal &&
       !pago &&
       Number(p.locacao.valorCaucao) > 0 &&
       !p.locacao.caucaoPaga &&
       dateKey(dataExibicao) === dateKey(dataInicioLocacao);
+
+    const tituloPagamento = ePrimeiraSemanaRetirada
+      ? `1ª semana — ${p.locacao.cliente.nome}`
+      : isMensal
+        ? `Mensalidade${isPlano ? " Conquista" : ""} — ${p.locacao.cliente.nome}`
+        : `Pagamento — ${p.locacao.cliente.nome}`;
 
     eventos.push({
       id: `parcela-${p.id}`,
       chave: `parcela-${p.id}`,
       referenciaTipo: "parcela",
       referenciaId: p.id,
-      titulo: ePrimeiraSemanaRetirada
-        ? `1ª semana — ${p.locacao.cliente.nome}`
-        : `Pagamento — ${p.locacao.cliente.nome}`,
+      titulo: tituloPagamento,
       descricao: ePrimeiraSemanaRetirada
         ? `${p.locacao.veiculo.placa} · caução é item separado no mesmo dia`
-        : p.locacao.veiculo.placa,
+        : isMensal
+          ? `${p.locacao.veiculo.placa} · vence dia 5`
+          : p.locacao.veiculo.placa,
       dataInicio: dataExibicao,
       tipo: "PAGAMENTO_CLIENTE",
       href: `/locacoes/${p.locacaoId}`,
@@ -451,6 +488,12 @@ export async function getEventosAgenda(
         valor,
         valorBase,
         valorJuros,
+        valorMulta: encargos?.valorMulta,
+        valorJurosDiarios: encargos?.valorJurosDiarios,
+        modeloEncargos: encargos?.modelo,
+        encargosContrato: encargos
+          ? descricaoEncargosContrato(encargos.modelo)
+          : undefined,
         diasAtraso,
         atrasado: !pago && diasAtraso > 0,
         concluido: pago,
@@ -630,8 +673,12 @@ export async function getEventosAgenda(
   );
 }
 
-export async function getEventosAgendaMes(ano: number, mes: number) {
+export async function getEventosAgendaMes(
+  ano: number,
+  mes: number,
+  locadoraId: string
+) {
   const inicio = startOfMonth(new Date(ano, mes - 1, 1));
   const fim = endOfMonth(inicio);
-  return getEventosAgenda(inicio, fim);
+  return getEventosAgenda(inicio, fim, locadoraId);
 }

@@ -5,14 +5,18 @@ import { startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { parseDateInput } from "@/lib/utils";
 import { dadosCaucaoCreate } from "@/lib/caucao-locacao";
+import { provisionarContratoLocacao } from "@/lib/contratos/provisionar";
+import { sincronizarParcelasMensais } from "@/lib/parcelas-mensais";
 import {
   calcularValorTotalSemanal,
   encerrarParcelasAposDevolucao,
   sincronizarParcelasSemanais,
 } from "@/lib/parcelas-semanais";
+import { addMonths } from "date-fns";
 import { getCategoriaLocacaoVeiculos } from "@/lib/financeiro-categorias";
 import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import {
   locacaoCreateSchema,
   locacaoUpdateSchema,
@@ -20,25 +24,26 @@ import {
   parcelaSchema,
 } from "@/lib/validations/locacao";
 
-export type ActionResult<T = void> =
-  | { success: true; data?: T }
-  | { success: false; error: string };
+import { zodFieldErrors } from "@/lib/form/state";
+import type { ActionResult } from "@/lib/actions/action-result";
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 
 async function assertLocacaoAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "locacoes")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "locacoes")) {
     throw new Error("Sem permissão para gerenciar locações");
   }
-  return user;
+  return tenant;
 }
 
 async function assertVeiculoDisponivelParaLocacao(
   veiculoId: string,
+  locadoraId: string,
   statusDesejado: "RESERVADA" | "ATIVA",
   excludeLocacaoId?: string
 ) {
-  const veiculo = await prisma.veiculo.findUnique({
-    where: { id: veiculoId },
+  const veiculo = await prisma.veiculo.findFirst({
+    where: { id: veiculoId, locadoraId },
     select: { status: true, placa: true, kmAtual: true },
   });
 
@@ -56,6 +61,7 @@ async function assertVeiculoDisponivelParaLocacao(
 
   const conflito = await prisma.locacao.findFirst({
     where: {
+      locadoraId,
       veiculoId,
       status: { in: ["ATIVA", "RESERVADA"] },
       id: excludeLocacaoId ? { not: excludeLocacaoId } : undefined,
@@ -85,8 +91,10 @@ function revalidateLocacaoPaths(locacaoId?: string, veiculoId?: string) {
 }
 
 export async function getLocacoes(status?: string, veiculoId?: string) {
+  const { locadoraId } = await requireTenant();
   return prisma.locacao.findMany({
     where: {
+      locadoraId,
       ...(status ? { status: status as never } : {}),
       ...(veiculoId ? { veiculoId } : {}),
     },
@@ -100,19 +108,26 @@ export async function getLocacoes(status?: string, veiculoId?: string) {
 }
 
 export async function getLocacaoById(id: string) {
-  return prisma.locacao.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.locacao.findFirst({
+    where: { id, locadoraId },
     include: {
       veiculo: true,
       cliente: true,
       parcelas: { orderBy: { dataVencimento: "asc" } },
+      contrato: true,
+      planoConquista: {
+        include: { registros: { orderBy: { mesNumero: "asc" } } },
+      },
     },
   });
 }
 
 export async function getVeiculosDisponiveisParaLocacao() {
+  const { locadoraId } = await requireTenant();
   return prisma.veiculo.findMany({
     where: {
+      locadoraId,
       status: { in: ["DISPONIVEL", "ALUGADO"] },
     },
     orderBy: { placa: "asc" },
@@ -131,7 +146,7 @@ export async function createLocacao(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
     const parsed = locacaoCreateSchema.safeParse({
       veiculoId: formData.get("veiculoId"),
@@ -145,12 +160,17 @@ export async function createLocacao(
       observacoes: formData.get("observacoes") || undefined,
       iniciarAgora: formData.get("iniciarAgora"),
       cobrarCaucao: formData.get("cobrarCaucao") || undefined,
+      modeloContrato: formData.get("modeloContrato") || "PADRAO",
+      planoConquistaMeses: formData.get("planoConquistaMeses") || undefined,
+      planoConquistaValorAdesao:
+        formData.get("planoConquistaValorAdesao") || undefined,
     });
 
     if (!parsed.success) {
       return {
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+        fieldErrors: zodFieldErrors(parsed.error),
       };
     }
 
@@ -161,6 +181,7 @@ export async function createLocacao(
 
     const veiculo = await assertVeiculoDisponivelParaLocacao(
       parsed.data.veiculoId,
+      tenant.locadoraId,
       status
     );
 
@@ -171,41 +192,55 @@ export async function createLocacao(
       };
     }
 
+    const isPlano = parsed.data.modeloContrato === "PLANO_CONQUISTA";
+    const dataInicio = parseDateInput(parsed.data.dataInicio);
+    const dataFim =
+      parsed.data.dataFimPrevista ??
+      (isPlano
+        ? addMonths(dataInicio, parsed.data.planoConquistaMeses ?? 24)
+        : null);
+
+    const caucaoPadrao = dadosCaucaoCreate(
+      parsed.data.valorDiaria,
+      parsed.data.cobrarCaucao
+    );
+    const valorCaucao = isPlano
+      ? Number(
+          parsed.data.planoConquistaValorAdesao ??
+            caucaoPadrao.valorCaucao ??
+            parsed.data.valorDiaria
+        )
+      : Number(caucaoPadrao.valorCaucao);
+
     const locacao = await prisma.$transaction(async (tx) => {
       const created = await tx.locacao.create({
         data: {
+          locadoraId: tenant.locadoraId,
           veiculoId: parsed.data.veiculoId,
           clienteId: parsed.data.clienteId,
-          dataInicio: parseDateInput(parsed.data.dataInicio),
-          dataFimPrevista: parsed.data.dataFimPrevista
-            ? parseDateInput(parsed.data.dataFimPrevista)
-            : null,
+          dataInicio,
+          dataFimPrevista: dataFim ? parseDateInput(dataFim) : null,
           kmInicio: parsed.data.kmInicio,
           valorDiaria: parsed.data.valorDiaria,
-          ...dadosCaucaoCreate(
-            parsed.data.valorDiaria,
-            parsed.data.cobrarCaucao
-          ),
+          valorCaucao,
+          caucaoPaga: false,
+          modeloContrato: parsed.data.modeloContrato,
+          periodicidadePagamento: parsed.data.periodicidadePagamento,
+          planoConquistaMeses: parsed.data.planoConquistaMeses,
+          planoConquistaValorAdesao: parsed.data.planoConquistaValorAdesao,
           status,
           observacoes: parsed.data.observacoes,
         },
       });
 
       if (status === "ATIVA") {
-        const dataRetirada = parseDateInput(parsed.data.dataInicio);
         await tx.veiculo.update({
           where: { id: parsed.data.veiculoId },
           data: { status: "ALUGADO", kmAtual: parsed.data.kmInicio },
         });
-        await sincronizarParcelasSemanais(
-          tx,
-          created.id,
-          dataRetirada,
-          parsed.data.dataFimPrevista,
-          parsed.data.valorDiaria
-        );
       }
 
+      await provisionarContratoLocacao(created.id, tx);
       return created;
     });
 
@@ -214,7 +249,7 @@ export async function createLocacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao criar locação",
+      error: friendlyErrorMessage(e, "Erro ao criar locação"),
     };
   }
 }
@@ -224,9 +259,11 @@ export async function updateLocacao(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
-    const locacao = await prisma.locacao.findUnique({ where: { id } });
+    const locacao = await prisma.locacao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+    });
     if (!locacao) {
       return { success: false, error: "Locação não encontrada" };
     }
@@ -249,6 +286,7 @@ export async function updateLocacao(
       return {
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+        fieldErrors: zodFieldErrors(parsed.error),
       };
     }
 
@@ -274,13 +312,25 @@ export async function updateLocacao(
       });
 
       if (locacao.status === "ATIVA") {
-        await sincronizarParcelasSemanais(
-          tx,
-          id,
-          parseDateInput(locacao.dataInicio),
-          parsed.data.dataFimPrevista,
-          parsed.data.valorDiaria
-        );
+        const dataInicio = parseDateInput(locacao.dataInicio);
+        if (locacao.periodicidadePagamento === "MENSAL") {
+          await sincronizarParcelasMensais(
+            tx,
+            id,
+            dataInicio,
+            locacao.planoConquistaMeses ?? 24,
+            Number(parsed.data.valorDiaria)
+          );
+        } else {
+          await sincronizarParcelasSemanais(
+            tx,
+            id,
+            dataInicio,
+            parsed.data.dataFimPrevista,
+            parsed.data.valorDiaria
+          );
+        }
+        await provisionarContratoLocacao(id, tx);
       }
     });
 
@@ -289,17 +339,17 @@ export async function updateLocacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar locação",
+      error: friendlyErrorMessage(e, "Erro ao atualizar locação"),
     };
   }
 }
 
 export async function ativarLocacao(id: string): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
-    const locacao = await prisma.locacao.findUnique({
-      where: { id },
+    const locacao = await prisma.locacao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
       include: { veiculo: { select: { kmAtual: true, placa: true } } },
     });
 
@@ -311,7 +361,12 @@ export async function ativarLocacao(id: string): Promise<ActionResult> {
       return { success: false, error: "Somente reservas podem ser ativadas" };
     }
 
-    await assertVeiculoDisponivelParaLocacao(locacao.veiculoId, "ATIVA", id);
+    await assertVeiculoDisponivelParaLocacao(
+      locacao.veiculoId,
+      tenant.locadoraId,
+      "ATIVA",
+      id
+    );
 
     const kmInicio = Math.max(locacao.kmInicio, locacao.veiculo.kmAtual);
     const dataRetirada = parseDateInput(locacao.dataInicio);
@@ -325,15 +380,7 @@ export async function ativarLocacao(id: string): Promise<ActionResult> {
         where: { id: locacao.veiculoId },
         data: { status: "ALUGADO", kmAtual: kmInicio },
       });
-      await sincronizarParcelasSemanais(
-        tx,
-        id,
-        dataRetirada,
-        locacao.dataFimPrevista
-          ? parseDateInput(locacao.dataFimPrevista)
-          : null,
-        Number(locacao.valorDiaria)
-      );
+      await provisionarContratoLocacao(id, tx);
     });
 
     revalidateLocacaoPaths(id, locacao.veiculoId);
@@ -341,7 +388,7 @@ export async function ativarLocacao(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao ativar locação",
+      error: friendlyErrorMessage(e, "Erro ao ativar locação"),
     };
   }
 }
@@ -351,10 +398,10 @@ export async function finalizarLocacao(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
-    const locacao = await prisma.locacao.findUnique({
-      where: { id },
+    const locacao = await prisma.locacao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
       include: {
         veiculo: true,
         cliente: { select: { nome: true } },
@@ -379,6 +426,7 @@ export async function finalizarLocacao(
       return {
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+        fieldErrors: zodFieldErrors(parsed.error),
       };
     }
 
@@ -427,7 +475,10 @@ export async function finalizarLocacao(
       });
 
       if (parsed.data.registrarFinanceiro) {
-        const categoria = await getCategoriaLocacaoVeiculos(tx);
+        const categoria = await getCategoriaLocacaoVeiculos(
+          tenant.locadoraId,
+          tx
+        );
         await criarLancamentoFinanceiro(tx, {
           categoriaId: categoria.id,
           tipo: "ENTRADA",
@@ -445,16 +496,18 @@ export async function finalizarLocacao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao finalizar locação",
+      error: friendlyErrorMessage(e, "Erro ao finalizar locação"),
     };
   }
 }
 
 export async function cancelarLocacao(id: string): Promise<ActionResult> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
-    const locacao = await prisma.locacao.findUnique({ where: { id } });
+    const locacao = await prisma.locacao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+    });
     if (!locacao) {
       return { success: false, error: "Locação não encontrada" };
     }
@@ -483,7 +536,7 @@ export async function cancelarLocacao(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao cancelar locação",
+      error: friendlyErrorMessage(e, "Erro ao cancelar locação"),
     };
   }
 }
@@ -492,7 +545,7 @@ export async function createParcela(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertLocacaoAccess();
+    const tenant = await assertLocacaoAccess();
 
     const parsed = parcelaSchema.safeParse({
       locacaoId: formData.get("locacaoId"),
@@ -505,7 +558,16 @@ export async function createParcela(
       return {
         success: false,
         error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+        fieldErrors: zodFieldErrors(parsed.error),
       };
+    }
+
+    const locacao = await prisma.locacao.findFirst({
+      where: { id: parsed.data.locacaoId, locadoraId: tenant.locadoraId },
+      select: { id: true },
+    });
+    if (!locacao) {
+      return { success: false, error: "Locação não encontrada" };
     }
 
     const dataVencimento = parseDateInput(parsed.data.dataVencimento);
@@ -525,7 +587,7 @@ export async function createParcela(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao criar parcela",
+      error: friendlyErrorMessage(e, "Erro ao criar parcela"),
     };
   }
 }

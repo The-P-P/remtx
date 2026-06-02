@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import { gerarParcelasFinanciamento } from "@/lib/financiamento-parcelas";
 import {
   financiamentoVeiculoSchema,
@@ -11,14 +12,15 @@ import {
 import { getCategoriaFinanciamentoVeiculo } from "@/lib/financeiro-categorias";
 import { criarLancamentoFinanceiro } from "@/lib/financeiro-lancamento";
 import type { FormaPagamento } from "@/types/prisma";
-import type { ActionResult } from "@/lib/actions/veiculos";
+import type { ActionResult } from "@/lib/actions/action-result";
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 
 async function assertVeiculoAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "veiculos")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "veiculos")) {
     throw new Error("Sem permissão para gerenciar veículos");
   }
-  return user;
+  return tenant;
 }
 
 export async function criarFinanciamentoVeiculo(
@@ -66,10 +68,14 @@ export async function atualizarFinanciamentoBasico(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
 
-    const fin = await prisma.financiamentoVeiculo.findUnique({
-      where: { id: financiamentoId },
+    const fin = await prisma.financiamentoVeiculo.findFirst({
+      where: {
+        id: financiamentoId,
+        veiculoId,
+        veiculo: { locadoraId: tenant.locadoraId },
+      },
       include: { parcelas: { where: { dataPagamento: { not: null } }, take: 1 } },
     });
     if (!fin) return { success: false, error: "Financiamento não encontrado" };
@@ -151,7 +157,7 @@ export async function atualizarFinanciamentoBasico(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar financiamento",
+      error: friendlyErrorMessage(e, "Erro ao atualizar financiamento"),
     };
   }
 }
@@ -161,7 +167,7 @@ export async function confirmarPagamentoParcelaFinanciamento(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
 
     const registrarFinanceiro = formData.get("registrarFinanceiro") === "on";
     const formaPagamento = (formData.get("formaPagamento") as FormaPagamento) || null;
@@ -170,8 +176,11 @@ export async function confirmarPagamentoParcelaFinanciamento(
       ? new Date(dataPagamentoStr + "T12:00:00")
       : new Date();
 
-    const parcela = await prisma.parcelaFinanciamento.findUnique({
-      where: { id: parcelaId },
+    const parcela = await prisma.parcelaFinanciamento.findFirst({
+      where: {
+        id: parcelaId,
+        financiamento: { veiculo: { locadoraId: tenant.locadoraId } },
+      },
       include: {
         financiamento: {
           include: { veiculo: { select: { id: true, placa: true } } },
@@ -219,7 +228,10 @@ export async function confirmarPagamentoParcelaFinanciamento(
       });
 
       if (registrarFinanceiro) {
-        const categoria = await getCategoriaFinanciamentoVeiculo(tx);
+        const categoria = await getCategoriaFinanciamentoVeiculo(
+          tenant.locadoraId,
+          tx
+        );
         await criarLancamentoFinanceiro(tx, {
           categoriaId: categoria.id,
           tipo: "SAIDA",
@@ -241,7 +253,7 @@ export async function confirmarPagamentoParcelaFinanciamento(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao registrar pagamento",
+      error: friendlyErrorMessage(e, "Erro ao registrar pagamento"),
     };
   }
 }
@@ -250,10 +262,13 @@ export async function estornarPagamentoParcelaFinanciamento(
   parcelaId: string
 ): Promise<ActionResult> {
   try {
-    await assertVeiculoAccess();
+    const tenant = await assertVeiculoAccess();
 
-    const parcela = await prisma.parcelaFinanciamento.findUnique({
-      where: { id: parcelaId },
+    const parcela = await prisma.parcelaFinanciamento.findFirst({
+      where: {
+        id: parcelaId,
+        financiamento: { veiculo: { locadoraId: tenant.locadoraId } },
+      },
       include: {
         financiamento: true,
         transacaoFinanceira: { select: { id: true } },
@@ -297,7 +312,7 @@ export async function estornarPagamentoParcelaFinanciamento(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao estornar pagamento",
+      error: friendlyErrorMessage(e, "Erro ao estornar pagamento"),
     };
   }
 }

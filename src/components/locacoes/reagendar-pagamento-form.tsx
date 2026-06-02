@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  calcularJurosParcela,
+  calcularEncargosParcela,
+  descricaoEncargosContrato,
   valorTotalParcela,
 } from "@/lib/juros-parcela";
+import type {
+  PeriodicidadePagamento,
+  TipoModeloContrato,
+} from "@/types/prisma";
 import { formatCurrency } from "@/lib/utils";
 
 type Props = {
@@ -20,6 +25,8 @@ type Props = {
   /** Data exibida na agenda (pode já estar reagendada). */
   dataPagamentoAtual: string;
   defaultNovaData: string;
+  modeloContrato?: TipoModeloContrato;
+  periodicidadePagamento?: PeriodicidadePagamento;
   disabled?: boolean;
   onSubmit: (formData: FormData) => void;
 };
@@ -28,15 +35,27 @@ function parseDia(iso: string) {
   return startOfDay(new Date(iso));
 }
 
+function resolverPreviewModelo(opts: {
+  modeloContrato?: TipoModeloContrato;
+  periodicidadePagamento?: PeriodicidadePagamento;
+}): "PADRAO" | "PLANO_CONQUISTA" {
+  if (opts.modeloContrato === "PLANO_CONQUISTA") return "PLANO_CONQUISTA";
+  if (opts.periodicidadePagamento === "MENSAL") return "PLANO_CONQUISTA";
+  return "PADRAO";
+}
+
 export function ReagendarPagamentoForm({
   valorBase,
   vencimentoContrato,
   diaSemanaContrato,
   dataPagamentoAtual,
   defaultNovaData,
+  modeloContrato,
+  periodicidadePagamento,
   disabled,
   onSubmit,
 }: Props) {
+  const encargosOpts = { modeloContrato, periodicidadePagamento };
   const [novaData, setNovaData] = useState(defaultNovaData);
   const [aplicarJuros, setAplicarJuros] = useState(true);
 
@@ -46,25 +65,33 @@ export function ReagendarPagamentoForm({
   );
 
   const preview = useMemo(() => {
-    if (!novaData) {
-      return { dias: 0, juros: 0, total: valorBase };
-    }
+    const vazio = {
+      dias: 0,
+      multa: 0,
+      juros: 0,
+      encargos: 0,
+      modelo: resolverPreviewModelo(encargosOpts),
+      total: valorBase,
+    };
+    if (!novaData) return vazio;
     const dataPagamento = parseDia(novaData + "T12:00:00");
-    if (!aplicarJuros) {
-      return { dias: 0, juros: 0, total: valorBase };
-    }
-    const { diasAtraso, valorJuros } = calcularJurosParcela(
+    if (!aplicarJuros) return vazio;
+    const enc = calcularEncargosParcela(
       valorBase,
       vencimentoOriginal,
       dataPagamento,
-      false
+      false,
+      encargosOpts
     );
     return {
-      dias: diasAtraso,
-      juros: valorJuros,
-      total: valorTotalParcela(valorBase, valorJuros),
+      dias: enc.diasAtraso,
+      multa: enc.valorMulta,
+      juros: enc.valorJurosDiarios,
+      encargos: enc.valorEncargos,
+      modelo: enc.modelo,
+      total: valorTotalParcela(valorBase, enc.valorEncargos),
     };
-  }, [novaData, aplicarJuros, valorBase, vencimentoOriginal]);
+  }, [novaData, aplicarJuros, valorBase, vencimentoOriginal, modeloContrato, periodicidadePagamento]);
 
   const labelDiaContrato =
     diaSemanaContrato ??
@@ -126,20 +153,29 @@ export function ReagendarPagamentoForm({
           className="mt-0.5 size-4 rounded"
         />
         <span>
-          Aplicar juros de atraso (5% do valor semanal por dia, do vencimento
-          do contrato até a nova data escolhida)
+          Aplicar encargos de atraso ({descricaoEncargosContrato(preview.modelo)},
+          do vencimento do contrato até a nova data)
         </span>
       </label>
 
       <div className="rounded-md border p-3 text-sm space-y-1">
         <p>
-          Valor semanal: <strong>{formatCurrency(valorBase)}</strong>
+          Valor da parcela: <strong>{formatCurrency(valorBase)}</strong>
         </p>
         {aplicarJuros && preview.dias > 0 && (
-          <p className="text-amber-800 dark:text-amber-200">
-            Juros ({preview.dias} dia(s)):{" "}
-            <strong>{formatCurrency(preview.juros)}</strong>
-          </p>
+          <>
+            {preview.multa > 0 && (
+              <p className="text-amber-800 dark:text-amber-200">
+                Multa: <strong>{formatCurrency(preview.multa)}</strong>
+              </p>
+            )}
+            {preview.juros > 0 && (
+              <p className="text-amber-800 dark:text-amber-200">
+                Juros ({preview.dias} dia(s)):{" "}
+                <strong>{formatCurrency(preview.juros)}</strong>
+              </p>
+            )}
+          </>
         )}
         <p className="text-base">
           Total a pagar: <strong>{formatCurrency(preview.total)}</strong>

@@ -78,6 +78,9 @@ export function VeiculoFinanciamentoFields({
                 disabled={somenteBasico}
                 defaultValue={valorFinanciadoDefault}
               />
+              <p className="text-xs text-muted-foreground">
+                Principal contratado (sem juros).
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="financiamentoValorEntrada">Entrada</Label>
@@ -98,6 +101,10 @@ export function VeiculoFinanciamentoFields({
                 disabled={somenteBasico}
                 defaultValue={saldoDefault ?? valorFinanciadoDefault}
               />
+              <p className="text-xs text-muted-foreground">
+                Saldo atual a pagar — pode ser maior que o valor financiado por
+                causa dos juros.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="financiamentoValorParcela">Valor da parcela *</Label>

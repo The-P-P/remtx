@@ -1,8 +1,10 @@
 "use server";
 
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth";
+import { requireTenant } from "@/lib/tenant";
 import {
   manutencaoSchema,
   manutencaoUpdateSchema,
@@ -18,16 +20,20 @@ export type ActionResult<T = void> =
   | { success: false; error: string };
 
 async function assertManutencaoAccess() {
-  const user = await requireAuth();
-  if (!hasPermission(user.role, "manutencoes")) {
+  const tenant = await requireTenant();
+  if (!hasPermission(tenant.role, "manutencoes")) {
     throw new Error("Sem permissão para gerenciar manutenções");
   }
-  return user;
+  return tenant;
 }
 
 export async function getManutencoes(veiculoId?: string) {
+  const { locadoraId } = await requireTenant();
   return prisma.manutencao.findMany({
-    where: veiculoId ? { veiculoId } : undefined,
+    where: {
+      veiculo: { locadoraId },
+      ...(veiculoId ? { veiculoId } : {}),
+    },
     orderBy: { dataRealizada: "desc" },
     include: {
       veiculo: {
@@ -40,15 +46,17 @@ export async function getManutencoes(veiculoId?: string) {
 }
 
 export async function getVeiculoParaFiltroManutencoes(id: string) {
-  return prisma.veiculo.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.veiculo.findFirst({
+    where: { id, locadoraId },
     select: { id: true, placa: true, marca: true, modelo: true },
   });
 }
 
 export async function getManutencaoById(id: string) {
-  return prisma.manutencao.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.manutencao.findFirst({
+    where: { id, veiculo: { locadoraId } },
     include: {
       veiculo: { select: { placa: true, marca: true, modelo: true } },
       tipoManutencao: { select: { nome: true, intervaloKm: true } },
@@ -73,12 +81,13 @@ function parsePecasForm(formData: FormData) {
 
 async function validarKmManutencao(
   veiculoId: string,
+  locadoraId: string,
   kmRealizada: number,
   manutencaoIdExcluir?: string,
   kmAnteriorRegistro?: number
 ) {
-  const veiculo = await prisma.veiculo.findUnique({
-    where: { id: veiculoId },
+  const veiculo = await prisma.veiculo.findFirst({
+    where: { id: veiculoId, locadoraId },
     select: { kmAtual: true, placa: true, status: true },
   });
   if (!veiculo) {
@@ -151,14 +160,16 @@ export async function getTiposManutencao(options?: {
   apenasAtivos?: boolean;
   incluirId?: string;
 }) {
+  const { locadoraId } = await requireTenant();
   const where = options?.apenasAtivos
     ? {
+        locadoraId,
         OR: [
           { ativo: true },
           ...(options.incluirId ? [{ id: options.incluirId }] : []),
         ],
       }
-    : undefined;
+    : { locadoraId };
 
   return prisma.tipoManutencao.findMany({
     where,
@@ -171,8 +182,9 @@ export async function getTiposManutencao(options?: {
 }
 
 export async function getTipoManutencaoById(id: string) {
-  return prisma.tipoManutencao.findUnique({
-    where: { id },
+  const { locadoraId } = await requireTenant();
+  return prisma.tipoManutencao.findFirst({
+    where: { id, locadoraId },
     include: {
       pecasPadrao: true,
       _count: { select: { manutencoes: true } },
@@ -184,7 +196,7 @@ export async function createManutencao(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
     const pecasForm = parsePecasForm(formData);
     const colocarEmManutencao = formData.get("colocarEmManutencao") === "on";
@@ -213,14 +225,15 @@ export async function createManutencao(
 
     const kmCheck = await validarKmManutencao(
       parsed.data.veiculoId,
+      tenant.locadoraId,
       parsed.data.kmRealizada
     );
     if (!kmCheck.ok) {
       return { success: false, error: kmCheck.error };
     }
 
-    const tipo = await prisma.tipoManutencao.findUnique({
-      where: { id: parsed.data.tipoManutencaoId },
+    const tipo = await prisma.tipoManutencao.findFirst({
+      where: { id: parsed.data.tipoManutencaoId, locadoraId: tenant.locadoraId },
       include: { pecasPadrao: true },
     });
     if (!tipo) {
@@ -281,7 +294,10 @@ export async function createManutencao(
       });
 
       if (registrarFinanceiro && custoValor > 0) {
-        const categoria = await getCategoriaManutencaoFrota(tx);
+        const categoria = await getCategoriaManutencaoFrota(
+          tenant.locadoraId,
+          tx
+        );
         await sincronizarLancamentoManutencao(tx, m.id, {
           categoriaId: categoria.id,
           tipo: "SAIDA",
@@ -305,7 +321,7 @@ export async function createManutencao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao registrar manutenção",
+      error: friendlyErrorMessage(e, "Erro ao registrar manutenção"),
     };
   }
 }
@@ -315,9 +331,11 @@ export async function updateManutencao(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
-    const existente = await prisma.manutencao.findUnique({ where: { id } });
+    const existente = await prisma.manutencao.findFirst({
+      where: { id, veiculo: { locadoraId: tenant.locadoraId } },
+    });
     if (!existente) {
       return { success: false, error: "Manutenção não encontrada" };
     }
@@ -352,6 +370,7 @@ export async function updateManutencao(
 
     const kmCheck = await validarKmManutencao(
       parsed.data.veiculoId,
+      tenant.locadoraId,
       parsed.data.kmRealizada,
       id,
       existente.kmRealizada
@@ -360,8 +379,8 @@ export async function updateManutencao(
       return { success: false, error: kmCheck.error };
     }
 
-    const tipo = await prisma.tipoManutencao.findUnique({
-      where: { id: parsed.data.tipoManutencaoId },
+    const tipo = await prisma.tipoManutencao.findFirst({
+      where: { id: parsed.data.tipoManutencaoId, locadoraId: tenant.locadoraId },
     });
     if (!tipo) {
       return { success: false, error: "Tipo de manutenção não encontrado" };
@@ -409,7 +428,10 @@ export async function updateManutencao(
       }
 
       if (registrarFinanceiro && custoValor > 0) {
-        const categoria = await getCategoriaManutencaoFrota(tx);
+        const categoria = await getCategoriaManutencaoFrota(
+          tenant.locadoraId,
+          tx
+        );
         await sincronizarLancamentoManutencao(tx, id, {
           categoriaId: categoria.id,
           tipo: "SAIDA",
@@ -435,16 +457,18 @@ export async function updateManutencao(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao atualizar manutenção",
+      error: friendlyErrorMessage(e, "Erro ao atualizar manutenção"),
     };
   }
 }
 
 export async function deleteManutencao(id: string): Promise<ActionResult> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
-    const existente = await prisma.manutencao.findUnique({ where: { id } });
+    const existente = await prisma.manutencao.findFirst({
+      where: { id, veiculo: { locadoraId: tenant.locadoraId } },
+    });
     if (!existente) {
       return { success: false, error: "Manutenção não encontrada" };
     }
@@ -465,7 +489,7 @@ export async function deleteManutencao(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir manutenção",
+      error: friendlyErrorMessage(e, "Erro ao excluir manutenção"),
     };
   }
 }
@@ -474,7 +498,7 @@ export async function createTipoManutencao(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
     const parsed = tipoManutencaoSchema.safeParse({
       nome: formData.get("nome"),
@@ -489,6 +513,7 @@ export async function createTipoManutencao(
 
     const tipo = await prisma.tipoManutencao.create({
       data: {
+        locadoraId: tenant.locadoraId,
         nome: parsed.data.nome,
         descricao: parsed.data.descricao,
         intervaloKm: parsed.data.intervaloKm,
@@ -504,7 +529,7 @@ export async function createTipoManutencao(
     revalidatePath("/manutencoes");
     return { success: true, data: { id: tipo.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao criar tipo";
+    const msg = friendlyErrorMessage(e, "Erro ao criar tipo");
     if (msg.includes("Unique constraint")) {
       return { success: false, error: "Tipo já existe com este nome" };
     }
@@ -530,9 +555,11 @@ export async function updateTipoManutencao(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
-    const existente = await prisma.tipoManutencao.findUnique({ where: { id } });
+    const existente = await prisma.tipoManutencao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
+    });
     if (!existente) {
       return { success: false, error: "Tipo de manutenção não encontrado" };
     }
@@ -573,7 +600,7 @@ export async function updateTipoManutencao(
     revalidatePath(`/manutencoes/tipos/${id}/editar`);
     return { success: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Erro ao atualizar tipo";
+    const msg = friendlyErrorMessage(e, "Erro ao atualizar tipo");
     if (msg.includes("Unique constraint")) {
       return { success: false, error: "Já existe outro tipo com este nome" };
     }
@@ -583,10 +610,10 @@ export async function updateTipoManutencao(
 
 export async function deleteTipoManutencao(id: string): Promise<ActionResult> {
   try {
-    await assertManutencaoAccess();
+    const tenant = await assertManutencaoAccess();
 
-    const tipo = await prisma.tipoManutencao.findUnique({
-      where: { id },
+    const tipo = await prisma.tipoManutencao.findFirst({
+      where: { id, locadoraId: tenant.locadoraId },
       select: { nome: true },
     });
     if (!tipo) {
@@ -612,14 +639,15 @@ export async function deleteTipoManutencao(id: string): Promise<ActionResult> {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Erro ao excluir tipo",
+      error: friendlyErrorMessage(e, "Erro ao excluir tipo"),
     };
   }
 }
 
 export async function getVeiculosParaSelect() {
+  const { locadoraId } = await requireTenant();
   return prisma.veiculo.findMany({
-    where: { status: { not: "INATIVO" } },
+    where: { locadoraId, status: { not: "INATIVO" } },
     select: { id: true, placa: true, marca: true, modelo: true, kmAtual: true },
     orderBy: { placa: "asc" },
   });

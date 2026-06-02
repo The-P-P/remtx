@@ -37,7 +37,9 @@ function Variacao({
       <Icon className="size-3" />
       {valor > 0 ? "+" : ""}
       {valor.toFixed(1)}
-      {sufixo} vs período anterior
+      {sufixo}
+      <span className="hidden sm:inline"> vs período anterior</span>
+      <span className="sm:hidden"> vs ant.</span>
     </span>
   );
 }
@@ -59,9 +61,11 @@ function KpiCard({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-1 pt-6">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("text-lg font-bold", valueClass)}>{value}</p>
+      <CardContent className="space-y-1 px-3 pt-4 pb-4 sm:px-4 sm:pt-6">
+        <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">
+          {label}
+        </p>
+        <p className={cn("text-base font-bold sm:text-lg", valueClass)}>{value}</p>
         {variacao !== undefined && (
           <Variacao
             valor={variacao}
@@ -82,7 +86,7 @@ export function RelatoriosKpiCards({
   comparativo: RelatorioComparativo;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       <KpiCard
         label="Receita (financeiro)"
         value={formatCurrency(data.receita)}

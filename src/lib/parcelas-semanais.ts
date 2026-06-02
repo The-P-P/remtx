@@ -115,9 +115,9 @@ export async function sincronizarParcelasSemanais(
 }
 
 /** Remove parcelas pendentes duplicadas no mesmo vencimento. */
-export async function removerParcelasPendentesDuplicadas() {
+export async function removerParcelasPendentesDuplicadas(locadoraId: string) {
   const pendentes = await prisma.parcelaLocacao.findMany({
-    where: { dataPagamento: null },
+    where: { dataPagamento: null, locacao: { locadoraId } },
     orderBy: { createdAt: "asc" },
   });
 
@@ -135,8 +135,9 @@ export async function removerParcelasPendentesDuplicadas() {
 }
 
 /** Corrige apenas datas salvas como meia-noite UTC (deslocam 1 dia no Brasil). */
-export async function corrigirVencimentosDeslocadosPorTimezone() {
+export async function corrigirVencimentosDeslocadosPorTimezone(locadoraId: string) {
   const locacoes = await prisma.locacao.findMany({
+    where: { locadoraId },
     select: { id: true, dataInicio: true, dataFimPrevista: true },
   });
 
@@ -160,7 +161,7 @@ export async function corrigirVencimentosDeslocadosPorTimezone() {
   }
 
   const parcelas = await prisma.parcelaLocacao.findMany({
-    where: { dataPagamento: null },
+    where: { dataPagamento: null, locacao: { locadoraId } },
   });
 
   for (const p of parcelas) {

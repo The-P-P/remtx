@@ -18,6 +18,9 @@ import { labelDataFimPrevista } from "@/lib/format/locacao";
 import { formatTelefoneDisplay } from "@/lib/format/br";
 import { nomeDiaSemana } from "@/lib/parcelas-semanais";
 import { resumoCaucaoLocacao } from "@/lib/caucao-locacao";
+import { ContratoDocumentoCard } from "@/components/locacoes/contrato-documento-card";
+import { PlanoConquistaCard } from "@/components/locacoes/plano-conquista-card";
+import { MODELO_CONTRATO_LABEL } from "@/lib/constants/enums";
 
 export default async function LocacaoDetalhePage({
   params,
@@ -84,7 +87,8 @@ export default async function LocacaoDetalhePage({
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Valor</p>
             <p className="mt-2 text-sm font-medium">
-              {formatCurrency(Number(locacao.valorDiaria))}/semana
+              {formatCurrency(Number(locacao.valorDiaria))}/
+              {locacao.periodicidadePagamento === "MENSAL" ? "mês" : "semana"}
               {locacao.valorTotal != null && (
                 <span className="block text-muted-foreground">
                   Total: {formatCurrency(Number(locacao.valorTotal))}
@@ -94,6 +98,25 @@ export default async function LocacaoDetalhePage({
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ContratoDocumentoCard
+          locacaoId={id}
+          numero={locacao.contrato?.numero ?? locacao.numeroContrato}
+          modelo={locacao.modeloContrato}
+          geradoEm={locacao.contrato?.geradoEm}
+        />
+        {locacao.planoConquista && (
+          <PlanoConquistaCard plano={locacao.planoConquista} />
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Modelo: <strong>{MODELO_CONTRATO_LABEL[locacao.modeloContrato]}</strong>
+        {locacao.numeroContrato && (
+          <> · Nº {locacao.numeroContrato}</>
+        )}
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -171,7 +194,11 @@ export default async function LocacaoDetalhePage({
       {["RESERVADA", "ATIVA"].includes(locacao.status) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Pagamentos semanais</CardTitle>
+            <CardTitle className="text-base">
+              {locacao.periodicidadePagamento === "MENSAL"
+                ? "Pagamentos mensais"
+                : "Pagamentos semanais"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {locacao.status === "RESERVADA" ? (

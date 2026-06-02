@@ -24,7 +24,7 @@ export function VeiculoSilhouette({
   return (
     <div
       className={cn(
-        "relative overflow-hidden border-b border-border/50 bg-muted/20",
+        "relative w-full max-w-full overflow-hidden border-b border-border/50 bg-muted/20",
         compact ? "h-[80px]" : "h-[120px]",
         className
       )}

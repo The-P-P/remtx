@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useMemo } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormActionsRow } from "@/components/shared/form-actions-row";
 import {
+  FormErrorBanner,
+  FormFieldError,
+} from "@/components/shared/form-field-error";
+import {
   formatCpfDisplay,
   formatCpfInput,
   formatTelefoneDisplay,
   formatTelefoneInput,
 } from "@/lib/format/br";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import type { FormAction, FormState } from "@/types/form";
 
 type ClienteFormProps = {
@@ -23,6 +29,8 @@ type ClienteFormProps = {
     telefone: string;
     email?: string | null;
     endereco?: string | null;
+    rg?: string | null;
+    rgOrgao?: string | null;
     observacoes?: string | null;
   };
   submitLabel: string;
@@ -35,11 +43,18 @@ export function ClienteForm({
   submitLabel,
   cancelHref,
 }: ClienteFormProps) {
-  const [cpf, setCpf] = useState(() =>
-    initial?.cpf ? formatCpfDisplay(initial.cpf) : ""
-  );
-  const [telefone, setTelefone] = useState(() =>
-    initial?.telefone ? formatTelefoneDisplay(initial.telefone) : ""
+  const defaults = useMemo(
+    () => ({
+      nome: initial?.nome ?? "",
+      cpf: initial?.cpf ? formatCpfDisplay(initial.cpf) : "",
+      telefone: initial?.telefone ? formatTelefoneDisplay(initial.telefone) : "",
+      email: initial?.email ?? "",
+      endereco: initial?.endereco ?? "",
+      rg: initial?.rg ?? "",
+      rgOrgao: initial?.rgOrgao ?? "",
+      observacoes: initial?.observacoes ?? "",
+    }),
+    [initial]
   );
 
   const [state, formAction, pending] = useActionState<FormState, FormData>(
@@ -47,44 +62,77 @@ export function ClienteForm({
     { success: true }
   );
 
+  const { val, fieldError, fieldClass, capture, setDraft } = useFormDraft(
+    state,
+    defaults
+  );
+
+  const syncForm = (form: HTMLFormElement | null) => {
+    if (form) capture(form);
+  };
+
   return (
-    <form action={formAction} className="w-full max-w-xl space-y-4">
+    <form
+      action={formAction}
+      onSubmit={(e) => capture(e.currentTarget)}
+      className="w-full max-w-xl space-y-4"
+    >
       {state.success === false && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
-          {state.error}
-        </p>
+        <FormErrorBanner error={state.error} fieldErrors={state.fieldErrors} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="nome">Nome *</Label>
-          <Input id="nome" name="nome" defaultValue={initial?.nome} required />
+          <Input
+            id="nome"
+            name="nome"
+            value={val("nome")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            required
+            className={fieldClass(!!fieldError("nome"))}
+          />
+          <FormFieldError message={fieldError("nome")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cpf">CPF *</Label>
           <Input
             id="cpf"
             name="cpf"
-            value={cpf}
-            onChange={(e) => setCpf(formatCpfInput(e.target.value))}
+            value={val("cpf")}
+            onChange={(e) => {
+              setDraft((prev) => ({
+                ...prev,
+                cpf: formatCpfInput(e.target.value),
+              }));
+            }}
             placeholder="000.000.000-00"
             inputMode="numeric"
             autoComplete="off"
             required
+            className={fieldClass(!!fieldError("cpf"))}
           />
+          <FormFieldError message={fieldError("cpf")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone *</Label>
           <Input
             id="telefone"
             name="telefone"
-            value={telefone}
-            onChange={(e) => setTelefone(formatTelefoneInput(e.target.value))}
+            value={val("telefone")}
+            onChange={(e) => {
+              setDraft((prev) => ({
+                ...prev,
+                telefone: formatTelefoneInput(e.target.value),
+              }));
+            }}
             placeholder="+55 (99) 9 9999-9999"
             inputMode="tel"
             autoComplete="tel"
             required
+            className={fieldClass(!!fieldError("telefone"))}
           />
+          <FormFieldError message={fieldError("telefone")} />
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="email">E-mail</Label>
@@ -92,16 +140,44 @@ export function ClienteForm({
             id="email"
             name="email"
             type="email"
-            defaultValue={initial?.email ?? ""}
+            value={val("email")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            className={fieldClass(!!fieldError("email"))}
           />
+          <FormFieldError message={fieldError("email")} />
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="endereco">Endereço</Label>
           <Input
             id="endereco"
             name="endereco"
-            defaultValue={initial?.endereco ?? ""}
+            value={val("endereco")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            className={fieldClass(!!fieldError("endereco"))}
           />
+          <FormFieldError message={fieldError("endereco")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="rg">RG</Label>
+          <Input
+            id="rg"
+            name="rg"
+            value={val("rg")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            className={fieldClass(!!fieldError("rg"))}
+          />
+          <FormFieldError message={fieldError("rg")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="rgOrgao">Órgão emissor</Label>
+          <Input
+            id="rgOrgao"
+            name="rgOrgao"
+            value={val("rgOrgao")}
+            onChange={(e) => syncForm(e.currentTarget.form)}
+            className={fieldClass(!!fieldError("rgOrgao"))}
+          />
+          <FormFieldError message={fieldError("rgOrgao")} />
         </div>
       </div>
 
@@ -110,7 +186,8 @@ export function ClienteForm({
         <Textarea
           id="observacoes"
           name="observacoes"
-          defaultValue={initial?.observacoes ?? ""}
+          value={val("observacoes")}
+          onChange={(e) => syncForm(e.currentTarget.form)}
           rows={3}
         />
       </div>

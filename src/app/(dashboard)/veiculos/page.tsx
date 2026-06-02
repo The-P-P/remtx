@@ -24,7 +24,7 @@ export default async function VeiculosPage({
   const veiculos = await getVeiculos(status || undefined);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="min-w-0 max-w-full space-y-4 sm:space-y-6">
       <PageHeader
         title="Gestão de Frota"
         description="Cadastro e acompanhamento de veículos da locadora"
@@ -38,7 +38,8 @@ export default async function VeiculosPage({
         }
       />
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="w-full max-w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+        <div className="flex w-max min-w-full gap-2 pb-1">
         {FILTROS.map((f) => (
           <Link
             key={f.value || "all"}
@@ -52,6 +53,7 @@ export default async function VeiculosPage({
             {f.label}
           </Link>
         ))}
+        </div>
       </div>
 
       <VeiculosList veiculos={veiculos} />

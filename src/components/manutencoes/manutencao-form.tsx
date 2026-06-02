@@ -1,5 +1,6 @@
 "use client";
 
+import { FormErrorInline } from "@/components/shared/form-field-error";
 import { useState, useMemo } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
@@ -127,11 +128,7 @@ export function ManutencaoForm({
         )}
       />
 
-      {state.success === false && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      )}
+      {state.success === false && <FormErrorInline error={state.error} />}
 
       <div className="space-y-2">
         <Label htmlFor="veiculoId">Veículo *</Label>

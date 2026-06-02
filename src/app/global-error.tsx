@@ -1,5 +1,7 @@
 "use client";
 
+import { ErrorFallback } from "@/components/shared/error-fallback";
+
 export default function GlobalError({
   error,
   reset,
@@ -9,18 +11,12 @@ export default function GlobalError({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 font-sans">
-        <h1 className="text-xl font-semibold">Algo deu errado</h1>
-        <p className="max-w-md text-center text-sm text-neutral-600">
-          {error.message || "Erro inesperado ao carregar a página."}
-        </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white"
-        >
-          Tentar novamente
-        </button>
+      <body className="flex min-h-screen items-center justify-center bg-neutral-50 p-6 font-sans antialiased dark:bg-neutral-950">
+        <ErrorFallback
+          error={error}
+          onRetry={reset}
+          fallbackMessage="Ocorreu um erro inesperado. Tente recarregar a página."
+        />
       </body>
     </html>
   );

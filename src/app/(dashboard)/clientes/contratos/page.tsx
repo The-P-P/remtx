@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Calendar } from "lucide-react";
-import { getLocacoes } from "@/lib/actions/locacoes";
+import { getContratosComDocumento } from "@/lib/actions/contratos";
+import { SincronizarContratosButton } from "@/components/locacoes/sincronizar-contratos-button";
 import { ClientesSection } from "@/components/clientes/clientes-section";
-import { LocacoesList } from "@/components/locacoes/locacoes-list";
+import { ContratosNav } from "@/components/clientes/contratos-nav";
+import { ContratosList } from "@/components/locacoes/contratos-list";
 import { PageActions } from "@/components/shared/page-actions";
 import { Button } from "@/components/ui/button";
 import { STATUS_LOCACAO_LABEL } from "@/lib/constants/enums";
@@ -21,7 +23,7 @@ export default async function ClientesContratosPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const locacoes = await getLocacoes(status || undefined);
+  const locacoes = await getContratosComDocumento(status || undefined);
 
   return (
     <ClientesSection
@@ -38,6 +40,8 @@ export default async function ClientesContratosPage({
         </PageActions>
       }
     >
+      <ContratosNav />
+      <SincronizarContratosButton />
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {FILTROS.map((f) => (
           <Link
@@ -57,7 +61,7 @@ export default async function ClientesContratosPage({
           </Link>
         ))}
       </div>
-      <LocacoesList locacoes={locacoes} />
+      <ContratosList locacoes={locacoes} />
     </ClientesSection>
   );
 }

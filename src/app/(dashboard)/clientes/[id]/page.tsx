@@ -4,6 +4,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, Calendar } from "lucide-react";
 import { getClienteById } from "@/lib/actions/clientes";
+import { getPlanoConquistaByCliente } from "@/lib/actions/contratos";
+import { formatCurrency } from "@/lib/utils";
+import { STATUS_PLANO_CONQUISTA_LABEL } from "@/lib/constants/enums";
 import { deleteClienteAction } from "@/lib/actions/form-actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageActions } from "@/components/shared/page-actions";
@@ -19,7 +22,10 @@ export default async function ClienteDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const cliente = await getClienteById(id);
+  const [cliente, planosConquista] = await Promise.all([
+    getClienteById(id),
+    getPlanoConquistaByCliente(id),
+  ]);
   if (!cliente) notFound();
 
   const podeExcluirCliente = cliente.locacoes.length === 0;
@@ -81,6 +87,39 @@ export default async function ClienteDetalhePage({
           )}
         </CardContent>
       </Card>
+
+      {planosConquista.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Planos Conquista</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/clientes/contratos/planos-conquista" />}
+            >
+              Ver todos
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {planosConquista.map((p) => (
+              <Link
+                key={p.id}
+                href={`/locacoes/${p.locacao.id}`}
+                className="block rounded-lg border p-3 hover:bg-muted/50"
+              >
+                <p className="text-sm font-medium">
+                  {p.locacao.veiculo.placa} —{" "}
+                  {STATUS_PLANO_CONQUISTA_LABEL[p.status]}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {p.mesesPagos}/{p.totalMeses} mensalidades ·{" "}
+                  {formatCurrency(Number(p.valorMensal))}/mês
+                </p>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">

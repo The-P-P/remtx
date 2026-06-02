@@ -16,6 +16,7 @@ import { TransacoesList } from "@/components/financeiro/transacoes-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { financeiroQuery } from "@/lib/financeiro-periodo";
 import { criarLancamentosFaltantesPagamentos } from "@/lib/financeiro-sync-parcelas";
+import { requireTenant } from "@/lib/tenant";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -55,7 +56,8 @@ export default async function FinanceiroPage({
     q: params.q,
   };
 
-  await criarLancamentosFaltantesPagamentos();
+  const { locadoraId } = await requireTenant();
+  await criarLancamentosFaltantesPagamentos(locadoraId);
 
   const [resumoFinal, transacoes, categorias, resumoCategorias] =
     await Promise.all([
@@ -67,7 +69,8 @@ export default async function FinanceiroPage({
 
   const conferenciaFinal = await getConferenciaLocacaoPeriodo(
     resumoFinal.inicio,
-    resumoFinal.fim
+    resumoFinal.fim,
+    locadoraId
   );
 
   const extra: Record<string, string | undefined> = {

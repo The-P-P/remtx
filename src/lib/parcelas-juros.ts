@@ -6,16 +6,25 @@ import {
   removerParcelasPendentesDuplicadas,
 } from "@/lib/parcelas-semanais";
 import {
-  calcularJurosParcela,
+  calcularEncargosParcela,
   valorTotalParcela,
 } from "@/lib/juros-parcela";
 
-/** Atualiza juros de parcelas em aberto (5% do valor base por dia de atraso). */
-export async function atualizarJurosParcelasPendentes() {
+/** Atualiza multa e juros de parcelas em aberto conforme o modelo de contrato. */
+export async function atualizarJurosParcelasPendentes(locadoraId: string) {
   const parcelas = await prisma.parcelaLocacao.findMany({
     where: {
       dataPagamento: null,
       pagamentoAjustado: false,
+      locacao: { locadoraId },
+    },
+    include: {
+      locacao: {
+        select: {
+          modeloContrato: true,
+          periodicidadePagamento: true,
+        },
+      },
     },
   });
 
@@ -26,16 +35,20 @@ export async function atualizarJurosParcelasPendentes() {
       const valorBase = Number(p.valorBase ?? p.valor);
       const jurosTravados = Number(p.jurosTravados ?? 0);
 
-      const { valorJuros: jurosDoVencimento } = calcularJurosParcela(
+      const encargos = calcularEncargosParcela(
         valorBase,
         p.dataVencimento,
         hoje,
-        p.isentarJuros
+        p.isentarJuros,
+        {
+          modeloContrato: p.locacao.modeloContrato,
+          periodicidadePagamento: p.locacao.periodicidadePagamento,
+        }
       );
 
       const valorJuros = p.isentarJuros
         ? 0
-        : Math.round((jurosTravados + jurosDoVencimento) * 100) / 100;
+        : Math.round((jurosTravados + encargos.valorEncargos) * 100) / 100;
       const valor = valorTotalParcela(valorBase, valorJuros);
 
       if (
@@ -54,8 +67,10 @@ export async function atualizarJurosParcelasPendentes() {
 }
 
 /** Preenche campos novos em parcelas antigas. */
-export async function normalizarParcelasLegadas() {
-  const parcelas = await prisma.parcelaLocacao.findMany();
+export async function normalizarParcelasLegadas(locadoraId: string) {
+  const parcelas = await prisma.parcelaLocacao.findMany({
+    where: { locacao: { locadoraId } },
+  });
   for (const p of parcelas) {
     const base = Number(p.valorBase);
     if (base > 0 && p.dataVencimentoOriginal) continue;
@@ -71,10 +86,10 @@ export async function normalizarParcelasLegadas() {
   }
 }
 
-export async function prepararParcelasParaAgenda() {
-  await normalizarParcelasLegadas();
-  await corrigirVencimentosDeslocadosPorTimezone();
-  await removerParcelasPendentesDuplicadas();
-  await criarLancamentosFaltantesPagamentos();
-  await atualizarJurosParcelasPendentes();
+export async function prepararParcelasParaAgenda(locadoraId: string) {
+  await normalizarParcelasLegadas(locadoraId);
+  await corrigirVencimentosDeslocadosPorTimezone(locadoraId);
+  await removerParcelasPendentesDuplicadas(locadoraId);
+  await criarLancamentosFaltantesPagamentos(locadoraId);
+  await atualizarJurosParcelasPendentes(locadoraId);
 }

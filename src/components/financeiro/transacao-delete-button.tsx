@@ -13,6 +13,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { deleteTransacaoAction } from "@/lib/actions/form-actions";
+import { FormErrorInline } from "@/components/shared/form-field-error";
+import { friendlyErrorMessage } from "@/lib/errors/friendly-message";
 
 export function TransacaoDeleteButton({
   id,
@@ -35,7 +37,7 @@ export function TransacaoDeleteButton({
       try {
         await deleteTransacaoAction(id, ano, mes);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro ao excluir");
+        setError(friendlyErrorMessage(e, "Erro ao excluir"));
       }
     });
   }
@@ -64,7 +66,11 @@ export function TransacaoDeleteButton({
           </SheetDescription>
         </SheetHeader>
         <p className="px-4 text-sm text-muted-foreground">{descricao}</p>
-        {error && <p className="px-4 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="px-4">
+            <FormErrorInline error={error} />
+          </div>
+        )}
         <SheetFooter className="flex-row gap-2 sm:justify-end">
           <Button
             type="button"

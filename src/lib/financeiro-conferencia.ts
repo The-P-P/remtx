@@ -2,9 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIA_LOCACAO_NOME } from "@/lib/financeiro-categorias";
 
 /** Compara recebimentos de locação (parcelas pagas) vs lançamentos no financeiro. */
-export async function getConferenciaLocacaoPeriodo(inicio: Date, fim: Date) {
+export async function getConferenciaLocacaoPeriodo(
+  inicio: Date,
+  fim: Date,
+  locadoraId: string
+) {
   const categoria = await prisma.categoriaFinanceira.findUnique({
-    where: { nome: CATEGORIA_LOCACAO_NOME },
+    where: {
+      locadoraId_nome: { locadoraId, nome: CATEGORIA_LOCACAO_NOME },
+    },
   });
 
   const [parcelasPagas, transacoesLocacao] = await Promise.all([
@@ -12,6 +18,7 @@ export async function getConferenciaLocacaoPeriodo(inicio: Date, fim: Date) {
       where: {
         dataPagamento: { gte: inicio, lte: fim },
         pagamentoAjustado: false,
+        locacao: { locadoraId },
       },
       select: {
         id: true,

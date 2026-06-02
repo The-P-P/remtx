@@ -82,29 +82,78 @@ enum GravidadeProblema {
   GRAVE
 }
 
-// --- Usuário (sincronizado com Clerk) ---
+enum TipoModeloContrato {
+  PADRAO
+  PLANO_CONQUISTA
+}
 
-model User {
-  id        String   @id
-  email     String   @unique
+enum StatusContratoDocumento {
+  RASCUNHO
+  GERADO
+}
+
+enum StatusPlanoConquista {
+  ATIVO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum PeriodicidadePagamento {
+  SEMANAL
+  MENSAL
+}
+
+// --- Locadora (tenant — cada conta Clerk = uma locadora) ---
+
+model Locadora {
+  id        String   @id @default(cuid())
   nome      String
-  role      UserRole @default(ATENDENTE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  users                 User[]
+  veiculos              Veiculo[]
+  clientes              Cliente[]
+  locacoes              Locacao[]
+  tiposManutencao       TipoManutencao[]
+  categoriasFinanceiras CategoriaFinanceira[]
+  configuracao          ConfiguracaoLocadora?
+  conclusoesAgenda      ConclusaoAgenda[]
+  eventosAgenda         EventoAgenda[]
+  contratos             ContratoLocacao[]
+
+  @@index([nome])
+}
+
+// --- Usuário (sincronizado com Clerk) ---
+
+model User {
+  id         String   @id
+  locadoraId String
+  email      String   @unique
+  nome       String
+  role       UserRole @default(ADMIN)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
   @@index([role])
+  @@index([locadoraId])
 }
 
 // --- Frota ---
 
 model Veiculo {
   id               String        @id @default(cuid())
-  placa            String        @unique
+  locadoraId       String
+  placa            String
   apelido          String?
   marca            String
   modelo           String
   ano              Int
   cor              String?
+  renavam          String?
   porte            PorteVeiculo  @default(SEDAN)
   valorCompra      Decimal?      @db.Decimal(12, 2)
   dataCompra       DateTime?
@@ -122,8 +171,12 @@ model Veiculo {
   eventosAgenda     EventoAgenda[]
   financiamento     FinanciamentoVeiculo?
 
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, placa])
   @@index([status])
   @@index([placa])
+  @@index([locadoraId])
 }
 
 model FinanciamentoVeiculo {
@@ -174,26 +227,36 @@ model ParcelaFinanciamento {
 
 model Cliente {
   id          String   @id @default(cuid())
+  locadoraId  String
   nome        String
-  cpf         String   @unique
+  cpf         String
   telefone    String
   email       String?
   endereco    String?
+  rg          String?
+  rgOrgao     String?
+  nacionalidade String? @default("brasileiro")
   observacoes String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  locacoes     Locacao[]
-  eventosAgenda EventoAgenda[]
+  locacoes          Locacao[]
+  planosConquista   PlanoConquista[]
+  eventosAgenda     EventoAgenda[]
 
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, cpf])
   @@index([nome])
   @@index([cpf])
+  @@index([locadoraId])
 }
 
 // --- Locações ---
 
 model Locacao {
   id              String        @id @default(cuid())
+  locadoraId      String
   veiculoId       String
   clienteId       String
   dataInicio      DateTime
@@ -207,20 +270,117 @@ model Locacao {
   caucaoDataPagamento DateTime?
   valorTotal      Decimal?      @db.Decimal(10, 2)
   status          StatusLocacao @default(RESERVADA)
+  modeloContrato  TipoModeloContrato      @default(PADRAO)
+  periodicidadePagamento PeriodicidadePagamento @default(SEMANAL)
+  numeroContrato  String?
+  planoConquistaMeses Int?
+  planoConquistaValorAdesao Decimal? @db.Decimal(12, 2)
   observacoes     String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  locadora  Locadora         @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
   veiculo   Veiculo          @relation(fields: [veiculoId], references: [id], onDelete: Restrict)
   cliente   Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   parcelas  ParcelaLocacao[]
+  contrato  ContratoLocacao?
+  planoConquista PlanoConquista?
   eventosAgenda EventoAgenda[]
   transacoesFinanceiras TransacaoFinanceira[]
 
+  @@unique([locadoraId, numeroContrato])
   @@index([status])
+  @@index([modeloContrato])
   @@index([veiculoId])
   @@index([clienteId])
+  @@index([locadoraId])
   @@index([dataInicio])
+}
+
+model ConfiguracaoLocadora {
+  id              String   @id
+  locadoraId      String   @unique
+  razaoSocial     String
+  cpfCnpj         String
+  rg              String?
+  rgOrgao         String?
+  endereco        String
+  cidade          String   @default("São Luís")
+  uf              String   @default("MA")
+  cep             String?
+  multaRescisao   Decimal  @default(750) @db.Decimal(10, 2)
+  kmSemanalMax    Int      @default(1500)
+  valorKmExtra    Decimal  @default(1) @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+}
+
+model ContratoLocacao {
+  id            String                  @id @default(cuid())
+  locadoraId    String
+  locacaoId     String                  @unique
+  numero        String
+  modelo        TipoModeloContrato
+  status        StatusContratoDocumento @default(GERADO)
+  dadosSnapshot Json
+  geradoEm      DateTime                @default(now())
+  versao        Int                     @default(1)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+  locacao  Locacao  @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, numero])
+  @@index([modelo])
+  @@index([numero])
+  @@index([locadoraId])
+}
+
+model PlanoConquista {
+  id                    String               @id @default(cuid())
+  clienteId             String
+  locacaoId             String               @unique
+  status                StatusPlanoConquista @default(ATIVO)
+  totalMeses            Int                  @default(24)
+  mesesPagos            Int                  @default(0)
+  valorMensal           Decimal              @db.Decimal(10, 2)
+  valorAdesao           Decimal              @db.Decimal(12, 2)
+  valorAdesaoPago       Decimal              @default(0) @db.Decimal(12, 2)
+  adesaoPaga            Boolean              @default(false)
+  dataInicio            DateTime
+  dataPrevistaConclusao DateTime?
+  dataConclusao         DateTime?
+  observacoes           String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  cliente   Cliente                  @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  locacao   Locacao                  @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  registros PlanoConquistaRegistro[]
+
+  @@index([clienteId])
+  @@index([status])
+}
+
+model PlanoConquistaRegistro {
+  id             String    @id @default(cuid())
+  planoId        String
+  mesNumero      Int
+  valor          Decimal   @db.Decimal(10, 2)
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  parcelaId      String?   @unique
+  observacao     String?
+  createdAt      DateTime  @default(now())
+
+  plano   PlanoConquista  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  parcela ParcelaLocacao? @relation(fields: [parcelaId], references: [id], onDelete: SetNull)
+
+  @@unique([planoId, mesNumero])
+  @@index([planoId])
 }
 
 model ParcelaLocacao {
@@ -240,8 +400,9 @@ model ParcelaLocacao {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  locacao            Locacao              @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
-  transacaoFinanceira TransacaoFinanceira?
+  locacao                 Locacao                  @relation(fields: [locacaoId], references: [id], onDelete: Cascade)
+  transacaoFinanceira     TransacaoFinanceira?
+  registroPlanoConquista  PlanoConquistaRegistro?
 
   @@index([locacaoId])
   @@index([dataVencimento])
@@ -249,7 +410,8 @@ model ParcelaLocacao {
 
 model ConclusaoAgenda {
   id             String           @id @default(cuid())
-  chave          String           @unique
+  locadoraId     String
+  chave          String
   tipo           TipoEventoAgenda
   dataPrevista   DateTime
   concluida      Boolean          @default(false)
@@ -259,12 +421,17 @@ model ConclusaoAgenda {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, chave])
   @@index([dataPrevista])
   @@index([reagendadaPara])
+  @@index([locadoraId])
 }
 
 model EventoAgenda {
   id          String           @id @default(cuid())
+  locadoraId  String
   titulo      String
   descricao   String?
   dataInicio  DateTime
@@ -280,18 +447,21 @@ model EventoAgenda {
 
   veiculo Veiculo? @relation(fields: [veiculoId], references: [id], onDelete: SetNull)
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
-  locacao Locacao? @relation(fields: [locacaoId], references: [id], onDelete: SetNull)
+  locacao  Locacao?  @relation(fields: [locacaoId], references: [id], onDelete: SetNull)
+  locadora Locadora  @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
 
   @@index([dataInicio])
   @@index([tipo])
   @@index([veiculoId])
+  @@index([locadoraId])
 }
 
 // --- Manutenção ---
 
 model TipoManutencao {
   id          String   @id @default(cuid())
-  nome        String   @unique
+  locadoraId  String
+  nome        String
   descricao   String?
   intervaloKm Int
   ativo       Boolean  @default(true)
@@ -300,6 +470,11 @@ model TipoManutencao {
 
   pecasPadrao  PecaPadraoTipo[]
   manutencoes  Manutencao[]
+
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, nome])
+  @@index([locadoraId])
 }
 
 model PecaPadraoTipo {
@@ -369,14 +544,20 @@ model ProblemaCronico {
 // --- Financeiro ---
 
 model CategoriaFinanceira {
-  id        String        @id @default(cuid())
-  nome      String        @unique
+  id         String        @id @default(cuid())
+  locadoraId String
+  nome       String
   tipo      TipoTransacao
   ativo     Boolean       @default(true)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   transacoes TransacaoFinanceira[]
+
+  locadora Locadora @relation(fields: [locadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([locadoraId, nome])
+  @@index([locadoraId])
 }
 
 model TransacaoFinanceira {

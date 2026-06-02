@@ -16,7 +16,7 @@ export function PageHeader({
   action,
 }: PageHeaderProps) {
   return (
-    <div className="mb-1 rounded-2xl border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur sm:p-5">
+    <div className="mb-1 min-w-0 max-w-full rounded-2xl border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         {backHref && (
@@ -30,9 +30,13 @@ export function PageHeader({
           </Button>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h2>
+          <h2 className="text-lg font-bold tracking-tight break-words sm:text-2xl">
+            {title}
+          </h2>
           {description && (
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-sm text-muted-foreground break-words">
+              {description}
+            </p>
           )}
         </div>
       </div>

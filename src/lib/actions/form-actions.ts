@@ -39,7 +39,25 @@ import {
   deleteCategoria,
 } from "@/lib/actions/financeiro";
 import { financeiroQuery } from "@/lib/financeiro-periodo";
+import { failFormState } from "@/lib/form/state";
 import type { FormState } from "@/types/form";
+
+type FailResult = {
+  success: false;
+  error: string;
+  fieldErrors?: Record<string, string>;
+};
+
+function fail(
+  formData: FormData,
+  result: FailResult | { success: true },
+  fallback: string
+): FormState {
+  if (result.success) {
+    return failFormState(fallback, formData);
+  }
+  return failFormState(result.error, formData, result.fieldErrors);
+}
 
 export async function submitNovoVeiculo(
   _prev: FormState,
@@ -49,10 +67,7 @@ export async function submitNovoVeiculo(
   if (result.success && result.data) {
     redirect(`/veiculos/${result.data.id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao cadastrar",
-  };
+  return fail(formData, result as FailResult, "Erro ao cadastrar");
 }
 
 export async function submitEditarVeiculo(
@@ -64,10 +79,7 @@ export async function submitEditarVeiculo(
   if (result.success) {
     redirect(`/veiculos/${id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar");
 }
 
 export async function submitProblemaCronico(
@@ -76,10 +88,7 @@ export async function submitProblemaCronico(
 ): Promise<FormState> {
   const result = await createProblemaCronico(formData);
   if (result.success) return { success: true };
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro",
-  };
+  return fail(formData, result as FailResult, "Erro");
 }
 
 export async function submitNovaManutencao(
@@ -94,10 +103,7 @@ export async function submitNovaManutencao(
     }
     redirect("/manutencoes");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao registrar",
-  };
+  return fail(formData, result as FailResult, "Erro ao registrar");
 }
 
 export async function deleteVeiculoAction(id: string) {
@@ -125,10 +131,7 @@ export async function submitEditarManutencao(
   if (result.success) {
     redirect("/manutencoes");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar");
 }
 
 export async function submitNovoTipoManutencao(
@@ -139,10 +142,7 @@ export async function submitNovoTipoManutencao(
   if (result.success) {
     redirect("/manutencoes/tipos");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao criar tipo",
-  };
+  return fail(formData, result as FailResult, "Erro ao criar tipo");
 }
 
 export async function submitEditarTipoManutencao(
@@ -154,10 +154,7 @@ export async function submitEditarTipoManutencao(
   if (result.success) {
     redirect("/manutencoes/tipos");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao atualizar tipo",
-  };
+  return fail(formData, result as FailResult, "Erro ao atualizar tipo");
 }
 
 export async function deleteTipoManutencaoAction(id: string) {
@@ -176,10 +173,7 @@ export async function submitNovoCliente(
   if (result.success && result.data) {
     redirect(`/clientes/${result.data.id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao cadastrar",
-  };
+  return fail(formData, result as FailResult, "Erro ao cadastrar");
 }
 
 export async function submitEditarCliente(
@@ -191,10 +185,7 @@ export async function submitEditarCliente(
   if (result.success) {
     redirect(`/clientes/${id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar");
 }
 
 export async function deleteClienteAction(id: string) {
@@ -218,10 +209,7 @@ export async function submitNovaLocacao(
     }
     redirect(`/locacoes/${result.data.id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao criar locação",
-  };
+  return fail(formData, result as FailResult, "Erro ao criar locação");
 }
 
 export async function submitEditarLocacao(
@@ -233,10 +221,7 @@ export async function submitEditarLocacao(
   if (result.success) {
     redirect(`/locacoes/${id}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar");
 }
 
 export async function submitNovoEventoAgenda(
@@ -261,10 +246,7 @@ export async function submitNovoEventoAgenda(
     }
     redirect("/locacoes");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar tarefa",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar tarefa");
 }
 
 export async function submitNovaParcela(
@@ -276,10 +258,7 @@ export async function submitNovaParcela(
   if (result.success && typeof locacaoId === "string") {
     redirect(`/locacoes/${locacaoId}`);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao criar parcela",
-  };
+  return fail(formData, result as FailResult, "Erro ao criar parcela");
 }
 
 function redirectFinanceiro(formData: FormData) {
@@ -296,10 +275,7 @@ export async function submitNovaTransacao(
   if (result.success) {
     redirectFinanceiro(formData);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao criar lançamento",
-  };
+  return fail(formData, result as FailResult, "Erro ao criar lançamento");
 }
 
 export async function submitEditarTransacao(
@@ -311,10 +287,7 @@ export async function submitEditarTransacao(
   if (result.success) {
     redirectFinanceiro(formData);
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar lançamento",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar lançamento");
 }
 
 export async function deleteTransacaoAction(
@@ -349,10 +322,7 @@ export async function submitNovaCategoria(
   if (result.success) {
     redirect("/financeiro/categorias");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao criar categoria",
-  };
+  return fail(formData, result as FailResult, "Erro ao criar categoria");
 }
 
 export async function submitEditarCategoria(
@@ -364,10 +334,7 @@ export async function submitEditarCategoria(
   if (result.success) {
     redirect("/financeiro/categorias");
   }
-  return {
-    success: false,
-    error: !result.success ? result.error : "Erro ao salvar categoria",
-  };
+  return fail(formData, result as FailResult, "Erro ao salvar categoria");
 }
 
 export async function deleteCategoriaAction(id: string) {

@@ -130,7 +130,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  overflow-x: clip;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
 body {
+  overflow-x: clip;
+  max-width: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
@@ -138,13 +147,6 @@ body {
     radial-gradient(circle at 8% -10%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 36%),
     radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 34%);
   background-attachment: fixed;
-}
-
-/* Transição suave ao trocar tema */
-html {
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
 }
 
 * {

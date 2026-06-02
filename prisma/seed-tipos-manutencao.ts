@@ -13,7 +13,14 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const LOCADORA_SEED_ID = "locadora-legado";
+
 async function seedTiposManutencao() {
+  await prisma.locadora.upsert({
+    where: { id: LOCADORA_SEED_ID },
+    create: { id: LOCADORA_SEED_ID, nome: "Locadora principal" },
+    update: {},
+  });
   if (TIPOS_MANUTENCAO_PREVENTIVA.length === 0) {
     console.log("📋 Catálogo de tipos vazio — nada a cadastrar.");
     return;
@@ -26,7 +33,9 @@ async function seedTiposManutencao() {
 
   for (const tipo of TIPOS_MANUTENCAO_PREVENTIVA) {
     const existente = await prisma.tipoManutencao.findUnique({
-      where: { nome: tipo.nome },
+      where: {
+        locadoraId_nome: { locadoraId: LOCADORA_SEED_ID, nome: tipo.nome },
+      },
     });
 
     if (existente) {
@@ -51,6 +60,7 @@ async function seedTiposManutencao() {
     } else {
       await prisma.tipoManutencao.create({
         data: {
+          locadoraId: LOCADORA_SEED_ID,
           nome: tipo.nome,
           descricao: tipo.descricao,
           intervaloKm: tipo.intervaloKm,
